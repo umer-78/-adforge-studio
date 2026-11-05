@@ -1,0 +1,19 @@
+# Only the worker and the packages it uses go into the image.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/.tmp
+**/.remotion-bundle
+**/coverage
+**/*.tsbuildinfo
+**/.DS_Store
+.git
+.github
+.vercel
+.env
+.env.*
+docs
+supabase
+apps/web/*
+!apps/web/package.json

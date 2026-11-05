@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+<defs>
+  <linearGradient id="body" x1="0" x2="1">
+    <stop offset="0" stop-color="#a99f8f"/>
+    <stop offset=".12" stop-color="#ddd5c8"/>
+    <stop offset=".3" stop-color="#faf6ef"/>
+    <stop offset=".55" stop-color="#ece6db"/>
+    <stop offset=".86" stop-color="#cbc2b2"/>
+    <stop offset="1" stop-color="#9c9282"/>
+  </linearGradient>
+  <linearGradient id="cap" x1="0" x2="1">
+    <stop offset="0" stop-color="#101016"/>
+    <stop offset=".3" stop-color="#3b3b48"/>
+    <stop offset=".55" stop-color="#23232c"/>
+    <stop offset="1" stop-color="#0b0b10"/>
+  </linearGradient>
+  <linearGradient id="band" x1="0" x2="1">
+    <stop offset="0" stop-color="#4a31b8"/>
+    <stop offset=".3" stop-color="#9077ff"/>
+    <stop offset=".6" stop-color="#7c5cff"/>
+    <stop offset="1" stop-color="#3f2a9e"/>
+  </linearGradient>
+  <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#000" stop-opacity=".16"/>
+    <stop offset=".1" stop-color="#000" stop-opacity="0"/>
+    <stop offset=".86" stop-color="#000" stop-opacity="0"/>
+    <stop offset="1" stop-color="#000" stop-opacity=".24"/>
+  </linearGradient>
+  <filter id="soft" x="-100%" y="-10%" width="300%" height="120%"><feGaussianBlur stdDeviation="3"/></filter>
+</defs>
+<path d="M178 36c0-17 44-17 44 0" fill="none" stroke="#2b2b35" stroke-width="9" stroke-linecap="round"/>
+<rect x="160" y="34" width="80" height="48" rx="12" fill="url(#cap)"/>
+<rect x="160" y="68" width="80" height="6" fill="#000" opacity=".35"/>
+<path d="M164 80h72c0 14 34 22 34 46v6H130v-6c0-24 34-32 34-46Z" fill="url(#body)"/>
+<rect x="130" y="116" width="140" height="270" rx="30" fill="url(#body)"/>
+<rect x="130" y="116" width="140" height="270" rx="30" fill="url(#shade)"/>
+<rect x="130" y="214" width="140" height="74" fill="url(#band)"/>
+<circle cx="200" cy="251" r="17" fill="none" stroke="#fff" stroke-opacity=".92" stroke-width="3"/>
+<path d="M191 251h18" stroke="#fff" stroke-opacity=".92" stroke-width="3" stroke-linecap="round"/>
+<rect x="152" y="94" width="9" height="280" rx="4.5" fill="#fff" opacity=".55" filter="url(#soft)"/>
+<rect x="247" y="128" width="5" height="240" rx="2.5" fill="#fff" opacity=".16" filter="url(#soft)"/>
+</svg>

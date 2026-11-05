@@ -1,0 +1,672 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light theme */
+:root {
+  --radius: 0.75rem;
+  --background: #f7f7fa;
+  --foreground: #0d0e12;
+  --surface: #ffffff;
+  --surface-2: #f0f1f5;
+  --surface-3: #e7e8ee;
+  --card: #ffffff;
+  --card-foreground: #0d0e12;
+  --popover: #ffffff;
+  --popover-foreground: #0d0e12;
+  --primary: #6d4dff;
+  --primary-foreground: #ffffff;
+  --secondary: #eceef3;
+  --secondary-foreground: #14151c;
+  --muted: #eceef3;
+  --muted-foreground: #5f6470;
+  --accent: #eceef3;
+  --accent-foreground: #14151c;
+  --destructive: #e5383b;
+  --destructive-foreground: #ffffff;
+  --success: #12a85a;
+  --warning: #c77d00;
+  --border: rgba(13, 14, 18, 0.1);
+  --input: rgba(13, 14, 18, 0.14);
+  --ring: #7c5cff;
+  --brand-from: #7c5cff;
+  --brand-to: #ff4d8d;
+  --glow: rgba(124, 92, 255, 0.18);
+  --chart-1: #7c5cff;
+  --chart-2: #ff4d8d;
+  --chart-3: #2bd67b;
+  --chart-4: #ffb020;
+  --chart-5: #38bdf8;
+  color-scheme: light;
+}
+
+/* Dark theme (default) */
+.dark {
+  --background: #07070b;
+  --foreground: #ecedee;
+  --surface: #0e0f14;
+  --surface-2: #14151c;
+  --surface-3: #1b1c25;
+  --card: #0e0f14;
+  --card-foreground: #ecedee;
+  --popover: #111219;
+  --popover-foreground: #ecedee;
+  --primary: #7c5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #1b1c25;
+  --secondary-foreground: #ecedee;
+  --muted: #16171f;
+  --muted-foreground: #8a8f98;
+  --accent: #1b1c25;
+  --accent-foreground: #ecedee;
+  --destructive: #ff4d4f;
+  --destructive-foreground: #ffffff;
+  --success: #2bd67b;
+  --warning: #ffb020;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #7c5cff;
+  --glow: rgba(124, 92, 255, 0.28);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-from: var(--brand-from);
+  --color-brand-to: var(--brand-to);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-pulse-ring: pulse-ring 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes pulse-ring {
+    0% {
+      box-shadow: 0 0 0 0 var(--glow);
+    }
+    100% {
+      box-shadow: 0 0 0 12px transparent;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  input[type='number']::-webkit-inner-spin-button {
+    opacity: 0.4;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .text-gradient {
+    background: linear-gradient(100deg, var(--brand-from), var(--brand-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-brand {
+    background: linear-gradient(120deg, var(--brand-from), var(--brand-to));
+  }
+  .border-gradient {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      linear-gradient(120deg, color-mix(in oklab, var(--brand-from) 70%, transparent), color-mix(in oklab, var(--brand-to) 70%, transparent)) border-box;
+  }
+  .glass {
+    background: color-mix(in oklab, var(--surface) 72%, transparent);
+    /* Written once: the CSS compiler adds the Safari prefix itself (both forms make it drop this one). */
+    backdrop-filter: blur(18px) saturate(140%);
+  }
+  .shimmer {
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--foreground) 7%, transparent), transparent);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  .checkerboard {
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #e5e5e5 25%, transparent 25%),
+      linear-gradient(-45deg, #e5e5e5 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #e5e5e5 75%),
+      linear-gradient(-45deg, transparent 75%, #e5e5e5 75%);
+    background-size: 16px 16px;
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Data-viz slots, validated for both themes (the first three pass all-pairs color-vision checks). */
+:root {
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+}
+.dark {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+}
+
+/* Marketing pages ------------------------------------------------------------------------------ */
+
+/* Lenis smooth scrolling */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+/* Preloader: a curtain that lifts once the first screen is ready. A timer in the boot script
+   lifts it after 6s whatever happens, so a failed script never leaves the page covered. */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.25rem;
+  background: var(--background);
+  clip-path: inset(0 0 0 0);
+  transition:
+    clip-path 0.9s var(--ease-out-expo),
+    visibility 0s linear 0.9s;
+}
+html:not(.preloading) .preloader {
+  clip-path: inset(0 0 100% 0);
+  visibility: hidden;
+  pointer-events: none;
+}
+html.preloader-skip .preloader {
+  display: none;
+}
+.preloader-logo {
+  width: 72px;
+  height: 72px;
+}
+.preloader-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: af-draw 1.4s var(--ease-out-expo) forwards;
+}
+.preloader-glyph {
+  animation-delay: 0.25s;
+}
+.preloader-spark {
+  animation-delay: 0.55s;
+}
+.preloader-meta {
+  display: flex;
+  min-width: 220px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.preloader-bar {
+  width: 220px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--border);
+}
+.preloader-bar > span {
+  display: block;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--brand-from), var(--brand-to));
+}
+
+/* Headline words rise in one after another (--i is the word's index). */
+.word {
+  display: inline-block;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+  clip-path: inset(-0.3em -0.3em 0 -0.3em);
+  vertical-align: top;
+}
+.word > span {
+  display: inline-block;
+  transform: translateY(110%);
+  animation: af-rise 1s var(--ease-out-expo) forwards;
+  animation-delay: calc(var(--i, 0) * 75ms + 150ms);
+}
+/* Fades in after the headline (--d is the delay). */
+.hero-in {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: af-fade-up 1.1s var(--ease-out-expo) forwards;
+  animation-delay: var(--d, 0.5s);
+}
+html.preloading .word > span,
+html.preloading .hero-in {
+  animation-play-state: paused;
+}
+
+/* Scroll reveals, only once the page knows motion is welcome (set before first paint). */
+html.motion-ok [data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s var(--ease-out-expo),
+    transform 0.9s var(--ease-out-expo);
+  transition-delay: calc(var(--reveal-index, 0) * 90ms);
+}
+html.motion-ok [data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Model and platform names drifting past. */
+.marquee {
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: af-marquee var(--marquee-duration, 70s) linear infinite;
+}
+.marquee-track[data-reverse] {
+  animation-direction: reverse;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* Hero: three phone frames in perspective. --p (0 to 1) is how far the hero has scrolled away. */
+.hero-stage {
+  --p: 0;
+  container-type: size;
+  perspective: 1400px;
+}
+.hero-flight {
+  transform-style: preserve-3d;
+  transform: translateY(calc(5cqh - var(--p) * 14cqh)) rotateX(calc(16deg - var(--p) * 16deg)) scale(calc(0.94 + var(--p) * 0.12));
+}
+.hero-frame {
+  --x: 0cqh;
+  --ry: 0deg;
+  --z: 0px;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 100%;
+  aspect-ratio: 9 / 16;
+  transform: translateX(-50%) translateX(var(--x)) translateZ(var(--z)) rotateY(var(--ry));
+}
+.hero-frame[data-side='left'] {
+  --x: calc(-44cqh - var(--p) * 14cqh);
+  --ry: calc(18deg + var(--p) * 10deg);
+  --z: -140px;
+  top: 9%;
+  height: 82%;
+}
+.hero-frame[data-side='right'] {
+  --x: calc(44cqh + var(--p) * 14cqh);
+  --ry: calc(-18deg - var(--p) * 10deg);
+  --z: -140px;
+  top: 9%;
+  height: 82%;
+}
+.hero-frame > .frame-in {
+  height: 100%;
+  opacity: 0;
+  transform: translateY(14%) scale(0.92);
+  animation: af-frame-in 1.4s var(--ease-out-expo) forwards;
+  animation-delay: var(--d, 0.6s);
+}
+html.preloading .hero-frame > .frame-in {
+  animation-play-state: paused;
+}
+
+/* Pinned horizontal feature rail: native horizontal scrolling until the script pins it. */
+.rail-track {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.rail-track::-webkit-scrollbar {
+  display: none;
+}
+.rail-track > * {
+  scroll-snap-align: start;
+}
+.rail[data-pinned] .rail-track {
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+/* Cards that tilt toward the pointer, with a soft light where it points. */
+.tilt {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s var(--ease-out-expo);
+  transform-style: preserve-3d;
+}
+.tilt[data-active] {
+  transition-duration: 0.12s;
+}
+.tilt::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(420px circle at var(--mx) var(--my), color-mix(in oklab, var(--primary) 16%, transparent), transparent 60%);
+  transition: opacity 0.4s;
+}
+.tilt[data-active]::before {
+  opacity: 1;
+}
+
+/* A soft ring that trails the pointer and grows over things you can click. */
+.cursor-ring {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 90;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 45%, transparent);
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    width 0.35s var(--ease-out-expo),
+    height 0.35s var(--ease-out-expo),
+    margin 0.35s var(--ease-out-expo),
+    background-color 0.35s,
+    border-color 0.35s,
+    opacity 0.3s;
+}
+.cursor-ring[data-state='idle'] {
+  opacity: 1;
+}
+.cursor-ring[data-state='link'] {
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  opacity: 1;
+  border-color: transparent;
+  background: color-mix(in oklab, var(--primary) 22%, transparent);
+}
+
+/* Slow gradient light behind the hero. */
+.aurora {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(80px);
+  opacity: 0.55;
+  animation: af-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes af-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes af-rise {
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes af-fade-up {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes af-frame-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes af-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes af-drift {
+  from {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(5%, 4%, 0) scale(1.12);
+  }
+}
+
+/* Voice waveform bars breathing in turn. */
+html.motion-ok .wave-bar {
+  transform-origin: center;
+  animation: af-wave 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -70ms);
+}
+@keyframes af-wave {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* App motion ----------------------------------------------------------------------------------- */
+
+/* Every app page eases in when you arrive (the template remounts on navigation). */
+.page-enter {
+  animation: af-page-in 0.6s var(--ease-out-expo) both;
+}
+@keyframes af-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Chart marks grow from their baseline. */
+.bar-grow {
+  transform-origin: bottom;
+  animation: af-grow-y 0.9s var(--ease-out-expo) both;
+}
+.grow-x {
+  transform-origin: left;
+  animation: af-grow-x 1s var(--ease-out-expo) both;
+}
+@keyframes af-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes af-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* A line that draws itself; needs pathLength="1" on the path. */
+.draw-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: af-draw 1.6s var(--ease-out-expo) 0.2s forwards;
+}
+.fade-late {
+  animation: af-fade 1s ease 0.8s both;
+}
+.rise-in {
+  animation: af-rise-in 0.8s var(--ease-out-expo) both;
+}
+@keyframes af-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes af-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A light sweep across a progress bar while work runs. */
+.shimmer-bar {
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.22) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+  mix-blend-mode: overlay;
+}
+
+/* A sheen that crosses a card on hover. */
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.09) 50%, transparent 65%);
+  transform: translateX(-120%);
+  transition: transform 0.9s var(--ease-out-expo);
+}
+.sheen:hover::after {
+  transform: translateX(120%);
+}
