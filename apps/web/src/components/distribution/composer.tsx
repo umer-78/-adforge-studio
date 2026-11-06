@@ -11,6 +11,7 @@ import { PlatformIcon, PLATFORM_META } from '@/components/app/platform-icon';
 import { ChipList } from '@/components/growth/shared';
 import { LlmPrice } from '@/components/scripts/llm-price';
 import { FeedPreviewButton } from '@/components/preview/feed-preview';
+import { AdChecksPanel } from './ad-checks-panel';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -358,6 +359,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
         </section>
 
         <Checks results={checks.data ?? []} loading={checks.isFetching} error={checks.error} letters={abMode} />
+        <AdChecksPanel text={[title, caption, ...variants.map((v) => v.caption ?? ''), ...Object.values(overrides), hashtags.map((h) => `#${h}`).join(' ')].join('\n')} assets={variants.map((v) => v.asset)} />
 
         {missing.length > 0 && (
           <ul className="space-y-1 text-xs text-muted-foreground">

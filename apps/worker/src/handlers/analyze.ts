@@ -114,7 +114,11 @@ export const mediaAnalyze: JobHandler<'media.analyze'> = {
 
     if (steps.includes('transcribe') && (asset.type === 'video' || asset.type === 'audio')) {
       ctx.progress(10, 'Transcribing');
-      if (await ensureTranscript(ctx, asset, await local())) done.push('transcribe');
+      if (await ensureTranscript(ctx, asset, await local())) {
+        done.push('transcribe');
+        // The words are known now: re-check sound-off and ad wording.
+        if (asset.type === 'video') await ctx.enqueue('media.check', { assetId: asset.id, parts: ['soundOff', 'policy'] }, { idempotencyKey: `media.check:${asset.id}:words:${Date.now()}`, priority: -1 });
+      }
     }
 
     if (steps.includes('tags') && (asset.type === 'video' || asset.type === 'image') && (await llmAvailable(ctx))) {

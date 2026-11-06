@@ -18,6 +18,7 @@ export const JOB_PAYLOADS = {
   'product.import': z.object({ productId: id }),
   /** Downloads a free library file into an asset the API already created. */
   'stock.import': z.object({ assetId: id }),
+  'media.check': z.object({ assetId: id, parts: z.array(z.enum(['flash', 'loudness', 'soundOff', 'policy'])).optional() }),
   'script.write': z.object({ scriptId: id }),
   'ad.clone': z.object({ blueprintId: id, step: z.enum(['analyze', 'adapt']) }),
   'inspiration.analyze': z.object({ inspirationAdId: id }),
@@ -61,6 +62,7 @@ export const JOB_LABELS: Record<JobType, string> = {
   'publish.metrics': 'Syncing post metrics',
   'product.import': 'Importing product page',
   'stock.import': 'Importing free media',
+  'media.check': 'Checking flashes, loudness and wording',
   'script.write': 'Writing script',
   'ad.clone': 'Cloning ad structure',
   'inspiration.analyze': 'Analyzing ad',
@@ -78,7 +80,7 @@ export const JOB_LABELS: Record<JobType, string> = {
 /** Worker pools: heavy jobs run with lower concurrency. */
 export const JOB_POOLS: { name: string; types: JobType[]; concurrency: number; leaseS: number }[] = [
   { name: 'render', types: ['render.timeline', 'variants.render'], concurrency: 1, leaseS: 1800 },
-  { name: 'media', types: ['media.process', 'audio.process', 'media.detect'], concurrency: 2, leaseS: 900 },
+  { name: 'media', types: ['media.process', 'audio.process', 'media.detect', 'media.check'], concurrency: 2, leaseS: 900 },
   {
     name: 'ai',
     types: ['ai.generate', 'ai.finalize', 'ai.poll', 'media.analyze', 'media.score', 'media.reframe', 'product.import', 'script.write', 'ad.clone', 'inspiration.analyze', 'variants.plan', 'agent.step'],

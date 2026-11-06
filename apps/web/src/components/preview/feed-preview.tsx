@@ -73,6 +73,7 @@ function FeedPreviewDialog({ asset, defaults, onClose }: { asset: AssetView; def
   const [cta, setCta] = useState(CTAS[0]!);
   const [zones, setZones] = useState(false);
   const [sound, setSound] = useState(false);
+  const [vision, setVision] = useState<Vision>('typical');
   const [mode, setMode] = useState<'preview' | 'test'>('preview');
 
   const handle = handleInput ?? defaults.handle ?? toHandle(me.data?.workspace.name);
@@ -88,7 +89,8 @@ function FeedPreviewDialog({ asset, defaults, onClose }: { asset: AssetView; def
           <DialogDescription>See “{asset.name}” the way people meet it on a phone, then test whether it makes you stop scrolling.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="h-[min(620px,64vh)] md:h-[min(700px,72vh)]">
+          <div className="h-[min(620px,64vh)] md:h-[min(700px,72vh)]" style={{ filter: VISION[vision].filter }}>
+            <VisionFilters />
             <PhoneFrame label={`${asset.name} as a ${label.hint} ${post.cta ? 'ad' : 'post'}`}>
               {mode === 'preview' ? <PreviewScreen placement={placement} post={post} muted={!sound} zones={zones} /> : <TestScreen test={test} placement={placement} muted={!sound} />}
             </PhoneFrame>
@@ -111,6 +113,9 @@ function FeedPreviewDialog({ asset, defaults, onClose }: { asset: AssetView; def
                 </Field>
                 <Toggle label="Show safe zones" hint="What the app covers, and where text is safe." checked={zones} onChange={setZones} />
                 <Toggle label="Sound" hint="Feeds start muted, so most people see your ad without sound." checked={sound} onChange={setSound} />
+                <Field label="How people see it" hint={VISION[vision].hint}>
+                  <Select aria-label="How people see it" value={vision} onValueChange={(v) => setVision(v as Vision)} options={(Object.keys(VISION) as Vision[]).map((v) => ({ value: v, label: VISION[v].label }))} />
+                </Field>
                 <Notes asset={asset} placement={placement} zones={zones} />
               </>
             ) : (
@@ -120,6 +125,37 @@ function FeedPreviewDialog({ asset, defaults, onClose }: { asset: AssetView; def
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Color vision simulations (Machado, Oliveira and Fernandes 2009, full severity, applied in linear
+ * light) and two common viewing conditions, to check that text and products still read.
+ */
+type Vision = 'typical' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'achromatopsia' | 'blur';
+const VISION: Record<Vision, { label: string; hint: string; filter?: string }> = {
+  typical: { label: 'Typical vision', hint: 'Simulate color blindness and low vision to check text and products still read.' },
+  deuteranopia: { label: 'Green-blind (deuteranopia)', hint: 'The most common color blindness, about 5% of men. Reds and greens look alike.', filter: 'url(#af-deuteranopia)' },
+  protanopia: { label: 'Red-blind (protanopia)', hint: 'About 1% of men. Reds look dark and close to greens.', filter: 'url(#af-protanopia)' },
+  tritanopia: { label: 'Blue-blind (tritanopia)', hint: 'Rare. Blues and greens, and yellows and pinks, look alike.', filter: 'url(#af-tritanopia)' },
+  achromatopsia: { label: 'No color', hint: 'Shows whether contrast alone carries the message.', filter: 'grayscale(1)' },
+  blur: { label: 'Blurry (low vision)', hint: 'Small text that blurs away here is hard to read on a phone at arm’s length.', filter: 'blur(2px)' },
+};
+const MATRICES = {
+  protanopia: '0.152286 1.052583 -0.204868 0 0 0.114503 0.786281 0.099216 0 0 -0.003882 -0.048116 1.051998 0 0 0 0 0 1 0',
+  deuteranopia: '0.367322 0.860646 -0.227968 0 0 0.280085 0.672501 0.047413 0 0 -0.011820 0.042940 0.968881 0 0 0 0 0 1 0',
+  tritanopia: '1.255528 -0.076749 -0.178779 0 0 -0.078411 0.930809 0.147602 0 0 0.004733 0.691367 0.303900 0 0 0 0 0 1 0',
+};
+
+function VisionFilters() {
+  return (
+    <svg aria-hidden width="0" height="0" className="absolute">
+      {Object.entries(MATRICES).map(([id, values]) => (
+        <filter key={id} id={`af-${id}`} colorInterpolationFilters="linearRGB">
+          <feColorMatrix type="matrix" values={values} />
+        </filter>
+      ))}
+    </svg>
   );
 }
 

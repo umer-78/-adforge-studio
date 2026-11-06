@@ -6,6 +6,7 @@ import { audioProcess } from './audio';
 import { adClone, inspirationAnalyze } from './clone';
 import { competitorsSync } from './competitors';
 import { aiFinalize, aiGenerate, aiPoll } from './generate';
+import { mediaCheck } from './checks';
 import { mediaDetect, mediaProcess } from './media';
 import { productImport } from './product';
 import { publishMetrics, publishPost } from './publish';
@@ -23,6 +24,7 @@ export const HANDLERS: HandlerMap = {
   'media.analyze': mediaAnalyze,
   'media.score': mediaScore,
   'media.detect': mediaDetect,
+  'media.check': mediaCheck,
   'media.reframe': mediaReframe,
   'audio.process': audioProcess,
   'ai.generate': aiGenerate,

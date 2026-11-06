@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ffmpegArgs, probe, toPublishMp4 } from './ffmpeg';
+import { FlashDetector } from '@adforge/core';
+import { ffmpegArgs, probe, streamFrames, toPublishMp4 } from './ffmpeg';
 
 const hasFfmpeg = (() => {
   try {
@@ -77,4 +78,31 @@ describe.skipIf(!hasFfmpeg)('toPublishMp4', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 60_000);
+});
+
+describe.skipIf(!hasFfmpeg)('flash check on real video', () => {
+  let dir = '';
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://example.supabase.co';
+    dir = mkdtempSync(path.join(os.tmpdir(), 'flash-'));
+    // Full-screen black and white swapping every two frames: 7.5 flashes a second.
+    execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=320x180:r=30:d=2', '-vf', "geq=lum='if(lt(mod(N,4),2),235,16)':cb=128:cr=128", '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path.join(dir, 'strobe.mp4')]);
+    execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path.join(dir, 'calm.mp4')]);
+    return () => rmSync(dir, { recursive: true, force: true });
+  });
+
+  const scan = async (name: string) => {
+    const d = new FlashDetector(64, 36, 30);
+    await streamFrames(path.join(dir, name), { width: 64, height: 36, fps: 30, onFrame: (f) => d.push(f) });
+    return d.result();
+  };
+
+  it('fails strobing and passes ordinary motion', async () => {
+    const strobe = await scan('strobe.mp4');
+    expect(strobe.frames).toBe(60);
+    expect(strobe.status).toBe('fail');
+    expect(strobe.maxFlashesPerSecond).toBeGreaterThan(5);
+    const calm = await scan('calm.mp4');
+    expect(calm.status).toBe('pass');
+  });
 });

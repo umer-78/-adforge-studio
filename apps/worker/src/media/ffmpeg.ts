@@ -360,3 +360,47 @@ export async function extractSpeechAudio(input: string, out: string, signal?: Ab
 }
 
 export const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/**
+ * Decodes the picture as small packed RGB frames and hands each one over as it arrives, so long
+ * videos never sit in memory. Used by the flash check.
+ */
+export function streamFrames(input: string, opts: { width: number; height: number; fps: number; maxS?: number; signal?: AbortSignal; onFrame: (rgb: Uint8Array) => void }): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (opts.signal?.aborted) return reject(opts.signal.reason ?? new JobAborted('canceled'));
+    const size = opts.width * opts.height * 3;
+    const args = ['-hide_banner', '-v', 'error', ...(opts.maxS ? ['-t', String(opts.maxS)] : []), '-i', input, '-map', '0:v:0', '-an', '-vf', `fps=${opts.fps},scale=${opts.width}:${opts.height}:flags=area,format=rgb24`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'];
+    const child = spawn(env().FFMPEG_PATH, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let pending: Buffer = Buffer.alloc(0);
+    let err = '';
+    let failed: Error | null = null;
+    const abort = () => child.kill('SIGKILL');
+    opts.signal?.addEventListener('abort', abort, { once: true });
+    child.stdout.on('data', (chunk: Buffer) => {
+      if (failed) return;
+      pending = pending.length ? Buffer.concat([pending, chunk]) : chunk;
+      let off = 0;
+      try {
+        while (pending.length - off >= size) {
+          opts.onFrame(pending.subarray(off, off + size));
+          off += size;
+        }
+      } catch (e) {
+        failed = e as Error;
+        child.kill('SIGKILL');
+      }
+      pending = pending.subarray(off);
+    });
+    child.stderr.on('data', (c: Buffer) => {
+      if (err.length < 4000) err += c.toString();
+    });
+    child.on('error', (e) => reject(new Error(`ffmpeg could not start: ${e.message}. Install FFmpeg or set FFMPEG_PATH.`)));
+    child.on('close', (code) => {
+      opts.signal?.removeEventListener('abort', abort);
+      if (opts.signal?.aborted) return reject(opts.signal.reason ?? new JobAborted('canceled'));
+      if (failed) return reject(failed);
+      if (code !== 0) return reject(new Error(`ffmpeg could not read the video: ${err.trim().slice(-400) || `exit ${code}`}`));
+      resolve();
+    });
+  });
+}

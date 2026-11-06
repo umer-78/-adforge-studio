@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { creditsCaption, formatBytes, formatDuration, formatUsd, isRecord, mergeCredits, LICENSE_KINDS, licenseIssueMessage, type AdScore, type LicenseIssue } from '@adforge/core';
+import { creditsCaption, formatBytes, type AdChecks, formatDuration, formatUsd, isRecord, mergeCredits, LICENSE_KINDS, licenseIssueMessage, type AdScore, type LicenseIssue } from '@adforge/core';
 import { AssetThumb } from '@/components/app/asset-card';
 import { FeedPreviewButton } from '@/components/preview/feed-preview';
+import { AdChecksCard } from './ad-checks';
 import { VideoPlayer } from '@/components/app/media-player';
 import { WaveformPlayer } from '@/components/audio/waveform-player';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +55,7 @@ interface Detail {
     licenseIssues: LicenseIssue[] | null;
     sourceUrl: string | null;
     reframes: Record<string, string> | null;
+    checks: AdChecks | null;
   };
   versions: { id: string; version: number; note: string | null; size_bytes: number; created_at: string }[];
   license: { id: string; kind: string; commercial_use: boolean; source: string | null; provider: string | null; terms_url: string | null; notes: string | null; expires_at: string | null; attribution: string | null } | null;
@@ -294,6 +296,14 @@ export function AssetDetail({ id }: { id: string }) {
               </div>
             </div>
             <LicenseCard license={q.data.license} type={a.type} credits={a.credits} onEdit={() => setDialog('license')} />
+            <AdChecksCard
+              checks={meta.checks}
+              type={a.type}
+              running={action.isPending && action.variables?.action === 'check'}
+              onRun={() => action.mutate({ action: 'check' })}
+              onMatchLoudness={() => action.mutate({ action: 'audio', op: 'normalize', targetLufs: -14 })}
+              onAddCaptions={() => editor.mutate({ assetIds: [a.id], name: a.name, aspect: a.width && a.height ? toAspect(a.width >= a.height ? (a.width / a.height > 1.5 ? '16:9' : '1:1') : a.height / a.width > 1.5 ? '9:16' : '4:5') : '9:16' })}
+            />
             {q.data.generation && (
               <div className="space-y-2 rounded-xl border p-3 text-sm">
                 <div className="flex items-center gap-2 font-medium">
