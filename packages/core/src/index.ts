@@ -13,6 +13,7 @@ export * from './settings';
 export * from './providers';
 export * from './platforms';
 export * from './export-presets';
+export * from './safe-zones';
 export * from './api/schemas';
 export * from './db';
 export * from './products';

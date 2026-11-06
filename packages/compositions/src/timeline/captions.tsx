@@ -1,10 +1,8 @@
 import { useMemo, type CSSProperties } from 'react';
-import { activeCaptionGroup, CAPTION_STYLES_BY_ID, ease, groupCaptionWords, textStyleSchema, type CaptionsClip } from '@adforge/core';
+import { activeCaptionGroup, CAPTION_STYLES_BY_ID, captionPositionPadding, ease, groupCaptionWords, textStyleSchema, type CaptionsClip } from '@adforge/core';
 import { captionStyleOverrides } from '../fonts';
 import { backPaint, frontPaint, needsBackLayer, typeCss } from '../text/style';
 import { clamp } from '../utils';
-
-const POSITION_PADDING = { top: 0.16, center: 0, bottom: 0.24 } as const;
 
 /** Word-timed captions with the active word highlighted. */
 export function CaptionsContent({ clip, frame, fps, u, box }: { clip: CaptionsClip; frame: number; fps: number; u: number; box: { width: number; height: number } }) {
@@ -73,7 +71,7 @@ export function CaptionsContent({ clip, frame, fps, u, box }: { clip: CaptionsCl
     </span>
   );
 
-  const pad = POSITION_PADDING[clip.position] * box.height;
+  const pad = captionPositionPadding(clip.position, box.width / box.height) * box.height;
   return (
     <div
       style={{

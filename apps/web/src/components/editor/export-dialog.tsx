@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlert, Film } from 'lucide-react';
-import { useState } from 'react';
-import { EXPORT_PRESETS, EXPORT_PRESETS_BY_ID, licenseIssueMessage, presetSize, type ExportPreset } from '@adforge/core';
+import { useMemo, useState } from 'react';
+import { EXPORT_PRESETS, EXPORT_PRESETS_BY_ID, licenseIssueMessage, presetSize, safeZoneIssueMessages, safeZoneIssues, safeZonesFor, type ExportPreset } from '@adforge/core';
 import { RenderStatus } from '@/components/app/render-status';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -44,6 +44,7 @@ function ExportBody() {
   const width = useEditor((s) => s.timeline.width);
   const height = useEditor((s) => s.timeline.height);
   const transparent = useEditor((s) => s.timeline.background === 'transparent');
+  const timeline = useEditor((s) => s.timeline);
   const [presetId, setPresetId] = useState(() => (transparent ? 'prores-4444' : suggestedPreset(width, height)));
   const [started, setStarted] = useState<string[]>([]);
   const preset = EXPORT_PRESETS_BY_ID[presetId] ?? EXPORT_PRESETS[0]!;
@@ -83,6 +84,8 @@ function ExportBody() {
   const tooLong = !!p && !!preset.maxDurationS && p.durationS > preset.maxDurationS + 0.01;
   const size = presetSize(preset, { width, height });
   const reshaped = Math.abs(size.width / size.height - width / height) > 0.01;
+  // Re-laid-out layers move, so the check only runs when the file keeps the edit's shape.
+  const zoneMessages = useMemo(() => (reshaped ? [] : safeZoneIssueMessages(safeZoneIssues(timeline, safeZonesFor(size.width, size.height)))), [reshaped, timeline, size.width, size.height]);
   const history = (renders.data ?? []).filter((r) => !started.includes(r.id));
 
   return (
@@ -148,6 +151,16 @@ function ExportBody() {
               {p && p.licenseIssues.length > 0 && (
                 <Notice tone="warning" title="Fine to download, not to publish">
                   {licenseIssueMessage(p.licenseIssues)}
+                </Notice>
+              )}
+              {zoneMessages.length > 0 && (
+                <Notice tone="warning" title="Text the app may cover">
+                  <ul className="space-y-0.5">
+                    {zoneMessages.map((m) => (
+                      <li key={m}>{m}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-muted-foreground">Turn on safe zones under the preview to see where.</p>
                 </Notice>
               )}
               {reshaped && <Notice tone="info">This preset has a different shape from your edit ({width}×{height}), so layers are re-laid out to fit. Check the result before posting.</Notice>}
