@@ -16,9 +16,16 @@ const num = (def: number) =>
       return Number.isFinite(n) ? n : def;
     });
 
+/** Vercel's production domain when NEXT_PUBLIC_APP_URL is not set, so a fresh deploy links to itself. */
+const appUrlOrDefault = (v: unknown) => {
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  return vercel ? `https://${vercel}` : 'http://localhost:3000';
+};
+
 const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
-  NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_APP_URL: z.preprocess(appUrlOrDefault, z.string().url()),
   APP_OWNER_EMAILS: z.string().default(''),
   APP_ENCRYPTION_KEY: optional,
   APP_ENCRYPTION_KEY_PREVIOUS: optional,

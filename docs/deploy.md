@@ -27,10 +27,11 @@ the worker claims them, so either side can restart or scale on its own.
 2. Set **Root Directory** to `apps/web`. Vercel detects Next.js and pnpm on its own.
 3. Under **Environment Variables**, add the values from `.env.example` that you use. At least:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`
-   - `NEXT_PUBLIC_APP_URL`: the site's address, such as `https://adforge-studio.vercel.app`
+   - `NEXT_PUBLIC_APP_URL` only for a custom domain: without it the site uses its Vercel address
    - `APP_ENCRYPTION_KEY` (see [the encryption key](#the-encryption-key))
    - `APP_OWNER_EMAILS` if only you should be able to sign in
-4. Deploy. When the address is final, update `NEXT_PUBLIC_APP_URL` and the Supabase URLs to match.
+4. Deploy. Then put the site's address in the Supabase URL settings (step 1.3) and in the
+   worker's `NEXT_PUBLIC_APP_URL`, so provider webhooks reach the site.
 
 ## 3. Worker on Railway
 
