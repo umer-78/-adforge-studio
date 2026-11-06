@@ -12,6 +12,10 @@ function allowed(email: string | undefined): boolean {
   return !list.length || (!!email && list.includes(email.toLowerCase()));
 }
 
+/** OPEN_ACCESS (with an owner email) turns sign-in off: /auth/open signs visitors in as the owner. */
+const openAccess = () =>
+  ['1', 'true', 'yes', 'on'].includes((process.env.OPEN_ACCESS ?? '').trim().toLowerCase()) && (process.env.APP_OWNER_EMAILS ?? '').split(',').some((s) => s.trim());
+
 /** Refreshes the Supabase session cookie and keeps signed-out visitors out of the app. */
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,8 +52,15 @@ export async function proxy(request: NextRequest) {
   const permitted = async () => !!claims && (allowed(claims.email as string | undefined) || (await supabase.rpc('has_joined_workspace')).data === true);
 
   if (isAppPath(path)) {
-    if (!claims) return redirect('/login', { next: path + request.nextUrl.search });
-    if (!(await permitted())) return redirect('/login', { error: 'not_allowed' });
+    const next = path + request.nextUrl.search;
+    const ok = await permitted();
+    if (!ok && openAccess()) return redirect('/auth/open', { next });
+    if (!claims) return redirect('/login', { next });
+    if (!ok) return redirect('/login', { error: 'not_allowed' });
+  }
+  // With sign-in off the sign-in page goes straight into the studio, unless it is showing an error.
+  if (path === '/login' && !claims && openAccess() && !request.nextUrl.searchParams.has('error')) {
+    return redirect('/auth/open', { next: request.nextUrl.searchParams.get('next') ?? '/dashboard' });
   }
   if (path === '/login' && claims && !request.nextUrl.searchParams.has('error') && (await permitted())) {
     const next = request.nextUrl.searchParams.get('next');

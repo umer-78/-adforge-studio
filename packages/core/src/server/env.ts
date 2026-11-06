@@ -27,6 +27,8 @@ const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
   NEXT_PUBLIC_APP_URL: z.preprocess(appUrlOrDefault, z.string().url()),
   APP_OWNER_EMAILS: z.string().default(''),
+  /** Sign-in off: every visitor uses the studio as the first APP_OWNER_EMAILS account. */
+  OPEN_ACCESS: flag(false),
   APP_ENCRYPTION_KEY: optional,
   APP_ENCRYPTION_KEY_PREVIOUS: optional,
 
@@ -157,10 +159,15 @@ export function supabaseSecretKey(e = env()): string {
   return key;
 }
 
-export function ownerEmails(e = env()): string[] {
+export function ownerEmails(e: Pick<Env, 'APP_OWNER_EMAILS'> = env()): string[] {
   return e.APP_OWNER_EMAILS.split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
+}
+
+/** The account every visitor uses while sign-in is off (OPEN_ACCESS), else null. */
+export function openAccessEmail(e: Pick<Env, 'OPEN_ACCESS' | 'APP_OWNER_EMAILS'> = env()): string | null {
+  return e.OPEN_ACCESS ? (ownerEmails(e)[0] ?? null) : null;
 }
 
 export function appUrl(path = '', e = env()): string {
