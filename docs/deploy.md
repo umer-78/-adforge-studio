@@ -21,6 +21,16 @@ the worker claims them, so either side can restart or scale on its own.
 4. **Project Settings > API Keys** holds the three values the website and worker need:
    the project URL, the publishable key and a secret key.
 
+### Storing files in an S3-compatible bucket instead (optional)
+
+Supabase's free plan stops at 50 MB per file. For bigger videos, set `STORAGE_DRIVER=s3` and the `S3_*`
+values on both the website and the worker (Cloudflare R2 has a free tier). Browsers upload to the bucket
+directly and build ZIP downloads from it, so its CORS rules must allow the website's origin:
+
+```json
+[{ "AllowedOrigins": ["https://<your-site>"], "AllowedMethods": ["GET", "HEAD", "PUT"], "AllowedHeaders": ["*"], "ExposeHeaders": ["ETag"], "MaxAgeSeconds": 3600 }]
+```
+
 ## 2. Website on Vercel
 
 1. In Vercel, **Add New > Project** and import the GitHub repository.

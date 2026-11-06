@@ -33,6 +33,7 @@ const NOTIFY_SUCCESS: Partial<Record<JobType, string>> = {
   'ad.clone': 'Ad structure ready',
   'ads.launch': 'Ads created (paused)',
   'media.reframe': 'Reframed copy saved',
+  'media.sizes': 'All sizes saved',
   'audio.process': 'Audio processed',
   'media.score': 'Ad score ready',
   'media.detect': 'Detection finished',

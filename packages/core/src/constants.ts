@@ -29,12 +29,24 @@ export type Role = (typeof ROLES)[number];
 
 export const ASPECT_RATIOS = ['9:16', '1:1', '4:5', '16:9'] as const;
 export type AspectRatio = (typeof ASPECT_RATIOS)[number];
+/** How a copy in another shape is made: cut around the subject, or the whole frame fitted on a blurred fill. */
+export const SIZE_MODES = ['smart', 'fit'] as const;
+export type SizeMode = (typeof SIZE_MODES)[number];
 
 export const ASPECT_SIZES: Record<AspectRatio, { width: number; height: number; label: string }> = {
   '9:16': { width: 1080, height: 1920, label: 'Vertical 9:16' },
   '1:1': { width: 1080, height: 1080, label: 'Square 1:1' },
   '4:5': { width: 1080, height: 1350, label: 'Portrait 4:5' },
   '16:9': { width: 1920, height: 1080, label: 'Landscape 16:9' },
+};
+
+/** Shapes in the all-sizes pack: the four main ones, plus Pinterest pins and link posts. */
+export const PACK_ASPECTS = ['9:16', '1:1', '4:5', '16:9', '2:3', '1.91:1'] as const;
+export type PackAspect = (typeof PACK_ASPECTS)[number];
+export const PACK_SIZES: Record<PackAspect, { width: number; height: number; label: string }> = {
+  ...ASPECT_SIZES,
+  '2:3': { width: 1000, height: 1500, label: 'Pinterest 2:3' },
+  '1.91:1': { width: 1200, height: 628, label: 'Link post 1.91:1' },
 };
 
 export function aspectFromSize(width: number, height: number): AspectRatio {

@@ -17,9 +17,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Tip } from '@/components/ui/tooltip';
 import { api, errorMessage } from '@/lib/api-client';
 import { useMe } from '@/lib/hooks/use-me';
-import type { AssetView, Page } from '@/lib/types';
+import type { AssetView, DownloadLink, Page } from '@/lib/types';
 import { startUploads } from '@/lib/upload';
 import { cn, qs, timeAgo } from '@/lib/utils';
+import { saveAsZip } from '@/lib/zip-download';
 import { LibrarySidebar, type LibraryFilter } from './library-sidebar';
 import { MoveDialog, TagDialog, useBulk } from './organize-dialogs';
 import { ShareDialog } from './share-dialog';
@@ -99,15 +100,27 @@ export function LibraryView({ trash = false }: { trash?: boolean }) {
     else n.delete(id);
     return n;
   });
-  const downloadSelected = () => {
-    ids.slice(0, 20).forEach((id, i) => setTimeout(() => {
-      const a = document.createElement('a');
-      a.href = `/api/assets/${id}/download`;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }, i * 400));
+  const [zipProgress, setZipProgress] = useState<number | null>(null);
+  const downloadOne = (id: string) => {
+    const a = document.createElement('a');
+    a.href = `/api/assets/${id}/download`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  const downloadSelected = async () => {
+    if (ids.length === 1) return downloadOne(ids[0]!);
+    setZipProgress(0);
+    try {
+      const { files } = await api.post<{ files: DownloadLink[] }>('/assets/download-links', { ids });
+      await saveAsZip(files, `AdForge ${new Date().toISOString().slice(0, 10)} (${files.length} files)`, setZipProgress);
+      toast.success(`Saved ${files.length} files as a ZIP`);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setZipProgress(null);
+    }
   };
   const projectName = projects.data?.find((p) => p.id === filter.projectId)?.name;
 
@@ -263,8 +276,8 @@ export function LibraryView({ trash = false }: { trash?: boolean }) {
               <Button size="sm" variant="ghost" onClick={() => setDialog('move')}>
                 <FolderInput className="size-4" /> Move
               </Button>
-              <Button size="sm" variant="ghost" onClick={downloadSelected}>
-                <Download className="size-4" /> Download
+              <Button size="sm" variant="ghost" loading={zipProgress !== null} onClick={() => void downloadSelected()}>
+                <Download className="size-4" /> {zipProgress !== null ? `${Math.round(zipProgress * 100)}%` : ids.length > 1 ? 'Download ZIP' : 'Download'}
               </Button>
               <Button size="sm" variant="ghost" className="text-destructive" loading={bulk.isPending && bulk.variables?.action === 'trash'} onClick={() => bulk.mutate({ ids, action: 'trash' }, { onSuccess: () => toast.success(`Moved ${ids.length} to trash`) })}>
                 <Trash2 className="size-4" /> Trash

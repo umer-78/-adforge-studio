@@ -10,7 +10,7 @@ import { mediaCheck } from './checks';
 import { mediaDetect, mediaProcess } from './media';
 import { productImport } from './product';
 import { publishComment, publishMetrics, publishPost } from './publish';
-import { mediaReframe } from './reframe';
+import { mediaReframe, mediaSizes } from './reframe';
 import { renderTimeline } from './render';
 import { scriptWrite } from './script';
 import { stockImport } from './stock';
@@ -26,6 +26,7 @@ export const HANDLERS: HandlerMap = {
   'media.detect': mediaDetect,
   'media.check': mediaCheck,
   'media.reframe': mediaReframe,
+  'media.sizes': mediaSizes,
   'audio.process': audioProcess,
   'ai.generate': aiGenerate,
   'ai.finalize': aiFinalize,

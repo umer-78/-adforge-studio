@@ -1,4 +1,4 @@
-import type { AssetSource, AssetStatus, AssetType, BioTheme, Capability, LicenseKind, LicenseState, KeyProvider, ModelDef, ScriptLine } from '@adforge/core';
+import type { AssetSource, AssetStatus, AssetType, BioTheme, Capability, LicenseKind, LicenseState, KeyProvider, ModelDef, ScriptLine, SizeMode } from '@adforge/core';
 
 /** Asset as the browser sees it: rows plus short-lived signed URLs. */
 export interface AssetView {
@@ -988,4 +988,18 @@ export interface InviteView {
   role: 'admin' | 'editor' | 'viewer';
   expiresAt: string;
   createdAt: string;
+}
+
+/** A signed link to one file, named for saving into a ZIP. */
+export interface DownloadLink {
+  id: string;
+  name: string;
+  bytes: number;
+  url: string;
+}
+
+export interface SizeSlot {
+  id: string;
+  mode: SizeMode | null;
+  original: boolean;
 }
