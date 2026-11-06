@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArchiveRestore, ArrowLeft, AudioLines, Box, Clapperboard, Crop, Download, Ellipsis, Film, FolderInput, Gauge, ScanSearch, Send, Share2, ShieldAlert, ShieldCheck, Sparkles, Star, Tag, Trash2, Wand2 } from 'lucide-react';
+import { ArchiveRestore, ArrowLeft, AudioLines, Box, Clapperboard, Crop, Download, Ellipsis, Film, FolderInput, Gauge, ScanSearch, Send, Share2, ShieldAlert, ShieldCheck, Smartphone, Sparkles, Star, Tag, Trash2, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
@@ -157,6 +157,13 @@ export function AssetDetail({ id }: { id: string }) {
                     <DropdownMenuItem asChild>
                       <Link href={`/publish?asset=${a.id}`}>
                         <Send /> Publish
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {(a.type === 'video' || a.type === 'image') && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/motion?tab=devices&screen=${a.id}`}>
+                        <Smartphone /> Put on a device
                       </Link>
                     </DropdownMenuItem>
                   )}

@@ -212,7 +212,7 @@ export function DeviceStudio({ initial }: { initial: AssetView | null }) {
   const [sound, setSound] = useState(true);
   const [busy, setBusy] = useState<null | 'clip' | 'still'>(null);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<AssetView | null>(null);
+  const [result, setResult] = useState<{ asset: AssetView; kind: 'clip' | 'still' } | null>(null);
   const storeRef = useRef<(() => RootState) | null>(null);
   const timingRef = useRef<Timing>({ exporting: false, lengthS: 6 });
   const screenRef = useRef<ScreenSource>({ texture: null, aspect: SAMPLE.aspect, fit: 'cover' });
@@ -320,7 +320,7 @@ export function DeviceStudio({ initial }: { initial: AssetView | null }) {
           screenRef.current.aspect = frames.aspect;
         }
         const reader = frames;
-        file = await renderCanvasClip({
+        const clip = await renderCanvasClip({
           get,
           size,
           lengthS,
@@ -329,9 +329,11 @@ export function DeviceStudio({ initial }: { initial: AssetView | null }) {
           audio: media.kind === 'video' && sound ? videoAudio(new URL(media.url, window.location.href).href, lengthS) : undefined,
           onProgress: setProgress,
         });
+        file = clip.file;
+        if (clip.audio === 'unsupported') toast.warning('This browser could not encode the sound, so the clip was saved without it.');
       }
       setProgress(100);
-      setResult(await upload(file));
+      setResult({ asset: await upload(file), kind: 'clip' });
       toast.success('Mockup clip saved to your library');
     } catch (e) {
       toast.error(errorMessage(e));
@@ -348,9 +350,10 @@ export function DeviceStudio({ initial }: { initial: AssetView | null }) {
     const get = storeRef.current;
     if (!get) return;
     setBusy('still');
+    setResult(null);
     try {
       const blob = await renderCanvasStill(get, size);
-      await upload(new File([blob], `${baseName}.png`, { type: 'image/png' }));
+      setResult({ asset: await upload(new File([blob], `${baseName}.png`, { type: 'image/png' })), kind: 'still' });
       toast.success('Still saved to your library');
     } catch (e) {
       toast.error(errorMessage(e));
@@ -451,15 +454,15 @@ export function DeviceStudio({ initial }: { initial: AssetView | null }) {
         {result && (
           <Notice
             tone="success"
-            title="Clip saved"
+            title={result.kind === 'clip' ? 'Clip saved' : 'Still saved'}
             action={
-              <Button size="xs" variant="outline" loading={editor.isPending} onClick={() => editor.mutate({ assetIds: [result.id], name: `${media.name} on a ${spec.label.toLowerCase()}`, aspect })}>
+              <Button size="xs" variant="outline" loading={editor.isPending} onClick={() => editor.mutate({ assetIds: [result.asset.id], name: `${media.name} on a ${spec.label.toLowerCase()}`, aspect })}>
                 <Clapperboard className="size-3.5" /> Edit it
               </Button>
             }
           >
-            <Link href={`/library/${result.id}`} className="underline underline-offset-2">
-              {result.name}
+            <Link href={`/library/${result.asset.id}`} className="underline underline-offset-2">
+              {result.asset.name}
             </Link>
           </Notice>
         )}

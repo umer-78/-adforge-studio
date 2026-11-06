@@ -7,6 +7,7 @@ import {
   PLATFORM_SPECS,
   SIGNED_URL_TTL,
   SOCIAL_PLATFORMS,
+  storageKeys,
   validateForPlatform,
   type AssetRow,
   type PostRow,
@@ -20,7 +21,7 @@ import { PermanentError, userMessage } from '../lib/errors';
 import { downloadAsset, putDerived } from '../lib/files';
 import { assertLicensed } from '../lib/licensing';
 import { nowIso } from '../lib/util';
-import { toJpeg } from '../media/ffmpeg';
+import { probe, toJpeg, toPublishMp4 } from '../media/ffmpeg';
 import { reschedule, type JobContext, type JobHandler } from '../runner';
 
 /** Platforms whose publisher pushes the file bytes instead of letting the platform pull a URL. */
@@ -83,6 +84,15 @@ async function resolveAsset(ctx: JobContext, post: PostRow): Promise<AssetRow | 
   return asset;
 }
 
+/** H.264 or HEVC video with AAC sound (or none) in MP4 or MOV: what every platform takes as it is. */
+function publishReady(asset: AssetRow, meta: Record<string, unknown>): boolean {
+  if (!/^video\/(mp4|quicktime)$/.test(asset.mime_type)) return false;
+  const video = typeof meta.codec === 'string' ? meta.codec : null;
+  const audio = typeof meta.audioCodec === 'string' ? meta.audioCodec : null;
+  if (video && video !== 'h264' && video !== 'hevc') return false;
+  return meta.hasAudio === false || !audio || audio === 'aac';
+}
+
 async function buildContext(
   ctx: JobContext,
   input: { post: PostRow; target: PostTargetRow; account: SocialAccountRow; asset: AssetRow; platform: SocialPlatform; accessToken: string; withFile: boolean },
@@ -99,8 +109,28 @@ async function buildContext(
   let contentType = asset.mime_type;
   let filePath = '';
   let sizeBytes = asset.size_bytes ?? 0;
+  const pushesFile = input.withFile && PUSH_PLATFORMS.has(platform) && account.provider !== 'ayrshare';
+  if (isVideo && !publishReady(asset, meta)) {
+    // Converted once per version of the file and kept with its other derived files.
+    const name = `publish-v${asset.version}.mp4`;
+    const key = storageKeys.derived(asset.workspace_id, asset.id, name);
+    let head = await driver.head(key);
+    if (!head || pushesFile) {
+      const local = path.join(await ctx.tmp(), 'publish.mp4');
+      if (head) await driver.downloadToFile(key, local);
+      else {
+        const original = await downloadAsset(ctx, asset);
+        await toPublishMp4(original, local, await probe(original, ctx.signal), ctx.signal);
+        head = { size: (await putDerived(asset, name, local, 'video/mp4')).bytes };
+      }
+      if (pushesFile) filePath = local;
+    }
+    url = await driver.signedReadUrl(key, SIGNED_URL_TTL.publish);
+    contentType = 'video/mp4';
+    sizeBytes = head.size;
+  }
   const needsJpeg = input.withFile && !isVideo && platform === 'instagram' && account.provider !== 'ayrshare' && !/jpe?g/.test(asset.mime_type);
-  if ((input.withFile && PUSH_PLATFORMS.has(platform) && account.provider !== 'ayrshare') || needsJpeg) {
+  if ((pushesFile && !filePath) || needsJpeg) {
     filePath = await downloadAsset(ctx, asset);
     if (needsJpeg) {
       const jpg = path.join(await ctx.tmp(), 'publish.jpg');
