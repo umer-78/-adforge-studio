@@ -220,6 +220,7 @@ function post(n: number, dayOffset: number, hour: number, status: PostView['stat
     abVariant: null,
     aiLabel: true,
     asset: videos[n % videos.length] ?? null,
+    carousel: [],
     platforms,
     targets: platforms.map((p, i) => ({
       id: id('ab000000', n * 10 + i),

@@ -268,7 +268,7 @@ export const TOOLS: Tool[] = [
     name: 'create_post',
     title: 'Publish or schedule a post',
     description:
-      'Posts a library video or image to connected accounts, now or at scheduledAt (ISO time with offset). Captions are checked against each platform’s limits. Set rightsAcknowledged to true only when the user confirms they own the rights to the content.',
+      'Posts a library video or image to connected accounts, now or at scheduledAt (ISO time with offset). For a carousel, pass carouselAssetIds: 2 to 10 files in order, starting with assetId (Instagram, Facebook, LinkedIn, X and Pinterest). Captions are checked against each platform’s limits. Set rightsAcknowledged to true only when the user confirms they own the rights to the content.',
     input: postCreateSchema,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     run: (a, call) => call(createPost, { method: 'POST', path: '/posts', body: a }),
@@ -277,7 +277,7 @@ export const TOOLS: Tool[] = [
     name: 'list_posts',
     title: 'List posts',
     description: 'Posts with their per-account status and results, newest first.',
-    input: z.object({ status: z.enum(['draft', 'scheduled', 'publishing', 'published', 'partially_published', 'failed', 'canceled']).optional(), limit: limit(20) }),
+    input: z.object({ status: z.enum(['draft', 'pending_approval', 'scheduled', 'publishing', 'published', 'partially_published', 'failed', 'canceled']).optional(), limit: limit(20) }),
     annotations: READ,
     run: (a, call) => call(listPosts, { method: 'GET', path: '/posts', query: a }),
   }),

@@ -19,9 +19,14 @@ const MAX_ROWS = 200;
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const PRIVACY: Record<string, string> = { everyone: 'PUBLIC_TO_EVERYONE', public: 'PUBLIC_TO_EVERYONE', friends: 'MUTUAL_FOLLOW_FRIENDS', followers: 'FOLLOWER_OF_CREATOR', 'only me': 'SELF_ONLY', private: 'SELF_ONLY' };
 
+/** The file column names one Library file, or several separated by | for a carousel. */
+const splitFiles = (v: string | undefined) => (v ?? '').split('|').map((x) => x.trim()).filter(Boolean);
+
 interface Row {
   line: number;
   asset: AssetView | null;
+  /** More files after `asset`: the post is a carousel. */
+  extra: AssetView[];
   title: string | null;
   caption: string;
   firstComment: string | null;
@@ -96,7 +101,7 @@ function CsvImportDialog({ onClose }: { onClose: () => void }) {
       if (!records.length) throw new Error('The file has no rows under the header.');
       if (records.length > MAX_ROWS) throw new Error(`Up to ${MAX_ROWS} posts per file. This one has ${records.length}.`);
       // Find each file once, by id or by its exact name in the Library.
-      const refs = [...new Set(records.map((r) => r.file).filter(Boolean))];
+      const refs = [...new Set(records.flatMap((r) => splitFiles(r.file)))];
       const ids = refs.map((r) => UUID.exec(r)?.[0]).filter((v): v is string => !!v);
       const byKey = new Map<string, AssetView>();
       for (let i = 0; i < ids.length; i += 50) {
@@ -113,12 +118,19 @@ function CsvImportDialog({ onClose }: { onClose: () => void }) {
       setRows(
         records.map((r, i) => {
           const problems: string[] = [];
-          const ref = r.file ?? '';
-          const asset = byKey.get(UUID.exec(ref)?.[0] ?? '') ?? byKey.get(ref.toLowerCase()) ?? null;
-          if (!ref) problems.push('No file named.');
-          else if (!asset) problems.push(`No Library file called “${ref}”.`);
-          else if (asset.status !== 'ready') problems.push(`“${asset.name}” is still processing.`);
-          else if (asset.type !== 'video' && asset.type !== 'image') problems.push(`“${asset.name}” is not a video or photo.`);
+          const files = splitFiles(r.file);
+          const matches = files.map((ref) => byKey.get(UUID.exec(ref)?.[0] ?? '') ?? byKey.get(ref.toLowerCase()) ?? null);
+          if (!files.length) problems.push('No file named.');
+          if (files.length > 10) problems.push('A carousel takes at most 10 files.');
+          files.forEach((ref, k) => {
+            const a = matches[k];
+            if (!a) problems.push(`No Library file called “${ref}”.`);
+            else if (a.status !== 'ready') problems.push(`“${a.name}” is still processing.`);
+            else if (a.type !== 'video' && a.type !== 'image') problems.push(`“${a.name}” is not a video or photo.`);
+          });
+          const picked = matches.filter((a): a is AssetView => !!a);
+          if (new Set(picked.map((a) => a.id)).size !== picked.length) problems.push('The same file is listed twice.');
+          const asset = matches[0] ?? null;
           const { found, unknown } = findAccounts(r.accounts ?? '');
           if (!r.accounts) problems.push('No accounts. Use network names (instagram), @handles or “all”.');
           if (unknown.length) problems.push(`Unknown account: ${unknown.join(', ')}.`);
@@ -143,6 +155,7 @@ function CsvImportDialog({ onClose }: { onClose: () => void }) {
           return {
             line: i + 2,
             asset,
+            extra: picked.slice(1),
             title: r.title || null,
             caption,
             firstComment: (r.first_comment ?? '').trim().slice(0, 2200) || null,
@@ -172,6 +185,7 @@ function CsvImportDialog({ onClose }: { onClose: () => void }) {
       try {
         await api.post<PostView>('/posts', {
           assetId: r.asset!.id,
+          carouselAssetIds: r.extra.length ? [r.asset!.id, ...r.extra.map((e) => e.id)] : null,
           title: r.title,
           caption: r.caption,
           firstComment: r.firstComment,
@@ -220,7 +234,7 @@ function CsvImportDialog({ onClose }: { onClose: () => void }) {
               if (f) void read(f);
             }}
           />
-          <span className="text-xs text-muted-foreground">Columns: file, caption, title, hashtags, accounts, date, time, tiktok_privacy, pinterest_board, ai_label, first_comment.</span>
+          <span className="text-xs text-muted-foreground">Columns: file, caption, title, hashtags, accounts, date, time, tiktok_privacy, pinterest_board, ai_label, first_comment. For a carousel, list several files in file, separated by |.</span>
         </div>
         {fileError && <Notice tone="error" title="This file could not be read">{fileError}</Notice>}
         {!accounts.length && !social.isLoading && <Notice tone="warning" title="No connected accounts">Connect an account in Settings before scheduling.</Notice>}
@@ -241,7 +255,7 @@ function CsvImportDialog({ onClose }: { onClose: () => void }) {
                 {rows.map((r) => (
                   <tr key={r.line} className="border-t align-top">
                     <td className="p-2 tabular-nums text-muted-foreground">{r.line}</td>
-                    <td className="max-w-40 truncate p-2">{r.asset?.name ?? '—'}</td>
+                    <td className="max-w-40 truncate p-2">{r.asset?.name ?? '—'}{r.extra.length ? ` +${r.extra.length}` : ''}</td>
                     <td className="p-2 whitespace-nowrap">{r.at ? fmt.format(r.at) : '—'}</td>
                     <td className="p-2">{r.accounts.map((a) => a.handle ?? a.platform).join(', ') || '—'}</td>
                     <td className="max-w-56 truncate p-2" title={r.caption}>

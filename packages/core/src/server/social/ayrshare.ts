@@ -47,7 +47,7 @@ export async function ayrsharePublish(platform: SocialPlatform, ctx: PublishCont
   const body: Record<string, unknown> = {
     post: ctx.caption,
     platforms: [toAyr(platform)],
-    mediaUrls: [ctx.media.url],
+    mediaUrls: (ctx.items && ctx.items.length > 1 ? ctx.items : [ctx.media]).map((m) => m.url),
     isVideo,
     idempotencyKey: typeof ctx.options.idempotencyKey === 'string' ? ctx.options.idempotencyKey : undefined,
   };

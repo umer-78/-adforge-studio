@@ -677,6 +677,8 @@ export interface PostView {
   abVariant: 'A' | 'B' | 'C' | 'D' | null;
   aiLabel: boolean;
   asset: AssetView | null;
+  /** Every file of a carousel post in order; empty for a single file. */
+  carousel: AssetView[];
   platforms: SocialPlatformId[];
   targets: PostTargetView[];
   /** Summed over published targets. */

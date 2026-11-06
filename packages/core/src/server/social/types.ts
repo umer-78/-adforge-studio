@@ -52,6 +52,8 @@ export interface PublishContext {
   accessToken: string;
   account: { externalId: string; handle: string | null; meta: Record<string, unknown> };
   media: PublishMedia;
+  /** Every file of a carousel post in order (the first is `media`); absent for a single file. */
+  items?: PublishMedia[];
   title: string | null;
   /** Final caption with hashtags, already trimmed to the platform limit. */
   caption: string;

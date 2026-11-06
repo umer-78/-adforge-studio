@@ -78,6 +78,20 @@ export const pinterestPublisher: Publisher = {
     const boardId = String(ctx.options.boardId ?? ctx.account.meta.defaultBoardId ?? '');
     if (!boardId) throw new PlatformError('pinterest', 400, 'Pinterest: pick a board for this pin in Settings → Social accounts.');
     const title = (ctx.title ?? ctx.caption.split('\n')[0] ?? '').slice(0, 100);
+    if (ctx.items && ctx.items.length > 1) {
+      if (ctx.items.some((m) => m.kind !== 'image')) throw new PlatformError('pinterest', 400, 'Pinterest: carousel pins take photos only.');
+      const { data } = await api<{ id: string }>('pinterest', `${API}/pins`, {
+        headers: bearer(ctx.accessToken),
+        json: {
+          board_id: boardId,
+          title,
+          description: ctx.caption.slice(0, 500),
+          ...(ctx.link ? { link: ctx.link } : {}),
+          media_source: { source_type: 'multiple_image_urls', items: ctx.items.map((m) => ({ url: m.url, ...(ctx.link ? { link: ctx.link } : {}) })) },
+        },
+      });
+      return { status: 'published', externalId: data.id, externalUrl: `https://www.pinterest.com/pin/${data.id}/` };
+    }
     if (ctx.media.kind === 'image') {
       const { data } = await api<{ id: string }>('pinterest', `${API}/pins`, {
         headers: bearer(ctx.accessToken),

@@ -120,7 +120,9 @@ screen fail, so add them before connecting accounts. After adding one, reconnect
 | Pinterest | `boards:read`, `boards:write`, `pins:read`, `pins:write`, `user_accounts:read` |
 
 `pages_manage_engagement`, `instagram_manage_comments` and `youtube.force-ssl` are only used to post
-a post's first comment.
+a post's first comment. Carousels (several files in one post) need no extra permissions: Instagram
+takes up to 10 photos or videos, Facebook and LinkedIn up to 10 photos, X 4 photos and Pinterest 5
+photos. TikTok and YouTube do not take them through their APIs.
 
 In the Meta app, also set:
 
