@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { asJson, displayName, isRecord, sniffMatches, storageKeys, validateUpload, type AssetRow, type UploadCreate } from '@adforge/core';
+import { asJson, carriedCredits, displayName, isRecord, sniffMatches, storageKeys, validateUpload, type AssetRow, type UploadCreate } from '@adforge/core';
 import { enqueueJob, features, storage, type ServiceClient, type UploadTicket } from '@adforge/core/server';
 import { badRequest, check, type Caller } from './api';
 
@@ -24,10 +24,14 @@ export async function createUpload(sb: ServiceClient, caller: Caller, input: Upl
     throw badRequest('The file contents do not match its type. It may be renamed or damaged.');
   }
   await Promise.all([assertInWorkspace(sb, caller, 'projects', input.projectId), assertInWorkspace(sb, caller, 'folders', input.folderId)]);
+  // A file made from another keeps its license and any credits it owes.
+  let parent: { license_id: string | null; meta: unknown } | null = null;
   if (input.parentAssetId) {
-    const { data } = await sb.from('assets').select('id').eq('id', input.parentAssetId).eq('workspace_id', caller.workspaceId).maybeSingle();
+    const { data } = await sb.from('assets').select('license_id, meta').eq('id', input.parentAssetId).eq('workspace_id', caller.workspaceId).maybeSingle();
     if (!data) throw badRequest('The original file no longer exists.');
+    parent = data;
   }
+  const credits = parent ? carriedCredits(parent.meta) : [];
   const id = randomUUID();
   const driver = storage();
   const key = storageKeys.original(caller.workspaceId, id, v.ext);
@@ -50,6 +54,8 @@ export async function createUpload(sb: ServiceClient, caller: Caller, input: Upl
         project_id: input.projectId ?? null,
         folder_id: input.folderId ?? null,
         parent_asset_id: input.parentAssetId ?? null,
+        license_id: parent?.license_id ?? null,
+        ...(credits.length ? { meta: asJson({ credits }) } : {}),
         is_ai_generated: input.isAiGenerated ?? false,
         upload_state: asJson({ kind: ticket.kind, uploadId: ticket.kind === 's3' ? ticket.uploadId : undefined, originalName: input.name, startedAt: new Date().toISOString() }),
       })

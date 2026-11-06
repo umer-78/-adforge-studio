@@ -16,6 +16,8 @@ export const JOB_PAYLOADS = {
   'publish.post': z.object({ postTargetId: id }),
   'publish.metrics': z.object({ postTargetId: id.optional() }),
   'product.import': z.object({ productId: id }),
+  /** Downloads a free library file into an asset the API already created. */
+  'stock.import': z.object({ assetId: id }),
   'script.write': z.object({ scriptId: id }),
   'ad.clone': z.object({ blueprintId: id, step: z.enum(['analyze', 'adapt']) }),
   'inspiration.analyze': z.object({ inspirationAdId: id }),
@@ -58,6 +60,7 @@ export const JOB_LABELS: Record<JobType, string> = {
   'publish.post': 'Publishing',
   'publish.metrics': 'Syncing post metrics',
   'product.import': 'Importing product page',
+  'stock.import': 'Importing free media',
   'script.write': 'Writing script',
   'ad.clone': 'Cloning ad structure',
   'inspiration.analyze': 'Analyzing ad',
@@ -82,5 +85,5 @@ export const JOB_POOLS: { name: string; types: JobType[]; concurrency: number; l
     concurrency: 4,
     leaseS: 600,
   },
-  { name: 'network', types: ['publish.post', 'publish.metrics', 'ads.launch', 'ads.status', 'ads.sync', 'competitors.sync', 'trash.purge', 'storage.purge'], concurrency: 3, leaseS: 900 },
+  { name: 'network', types: ['publish.post', 'publish.metrics', 'stock.import', 'ads.launch', 'ads.status', 'ads.sync', 'competitors.sync', 'trash.purge', 'storage.purge'], concurrency: 3, leaseS: 900 },
 ];

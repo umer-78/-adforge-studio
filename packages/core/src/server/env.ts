@@ -64,6 +64,11 @@ const envSchema = z.object({
   REPLICATE_API_TOKEN: optional,
   REPLICATE_WEBHOOK_SECRET: optional,
   ELEVENLABS_API_KEY: optional,
+  // Free media libraries. Openverse works without keys; its app credentials raise the rate limit.
+  PEXELS_API_KEY: optional,
+  PIXABAY_API_KEY: optional,
+  OPENVERSE_CLIENT_ID: optional,
+  OPENVERSE_CLIENT_SECRET: optional,
   ELEVENLABS_USD_PER_1K_CHARS: num(0.22),
   ELEVENLABS_MUSIC_USD_PER_MIN: num(0.8),
   ELEVENLABS_SFX_USD_PER_GEN: num(0.044),
@@ -181,6 +186,8 @@ export interface Features {
   replicate: boolean;
   agnes: boolean;
   elevenlabs: boolean;
+  /** Free media libraries that are switched on. */
+  stock: Record<'pexels' | 'pixabay' | 'openverse', boolean>;
   transcription: boolean;
   encryption: boolean;
   social: Record<'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'linkedin' | 'x' | 'pinterest' | 'ayrshare', boolean>;
@@ -203,6 +210,7 @@ export function features(e = env()): Features {
     replicate: !!e.REPLICATE_API_TOKEN,
     agnes: !!e.AGNES_API_KEY,
     elevenlabs: !!e.ELEVENLABS_API_KEY,
+    stock: { pexels: !!e.PEXELS_API_KEY, pixabay: !!e.PIXABAY_API_KEY, openverse: true },
     transcription: !!(e.ELEVENLABS_API_KEY || e.OPENAI_API_KEY),
     encryption: !!e.APP_ENCRYPTION_KEY,
     social: {

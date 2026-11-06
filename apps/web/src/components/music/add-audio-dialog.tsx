@@ -125,7 +125,7 @@ export function AddAudioDialog({ kind, open, onOpenChange }: { kind: 'music' | '
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Category">
-                <Select value={category} onValueChange={setCategory} options={SFX_CATEGORIES.filter((c) => c !== 'generated').map((c) => ({ value: c, label: sfxCategoryLabel(c) }))} />
+                <Select value={category} onValueChange={setCategory} options={SFX_CATEGORIES.filter((c) => c !== 'generated' && c !== 'free').map((c) => ({ value: c, label: sfxCategoryLabel(c) }))} />
               </Field>
               <Field label="Tags" hint="Separate with commas.">
                 <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="pop, bottle, open" />

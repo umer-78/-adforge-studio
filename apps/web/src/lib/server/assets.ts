@@ -1,5 +1,5 @@
 import 'server-only';
-import { isRecord, SIGNED_URL_TTL, type AssetMeta, type AssetRow, type PlaybackInfo } from '@adforge/core';
+import { carriedCredits, isRecord, SIGNED_URL_TTL, type AssetMeta, type AssetRow, type PlaybackInfo } from '@adforge/core';
 import { features, muxPlayback, storage, type ServiceClient } from '@adforge/core/server';
 import type { AssetView, PlaybackView } from '@/lib/types';
 
@@ -84,6 +84,7 @@ export async function toAssetViews(rows: AssetRow[], opts: { original?: boolean 
       updatedAt: a.updated_at,
       deletedAt: a.deleted_at,
       role: (meta.role as AssetView['role']) ?? null,
+      credits: carriedCredits(meta),
       colors: Array.isArray(meta.colors) ? meta.colors.filter((c): c is string => typeof c === 'string') : [],
       score,
       url: original,

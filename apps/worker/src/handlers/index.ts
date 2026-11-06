@@ -12,6 +12,7 @@ import { publishMetrics, publishPost } from './publish';
 import { mediaReframe } from './reframe';
 import { renderTimeline } from './render';
 import { scriptWrite } from './script';
+import { stockImport } from './stock';
 import { storagePurge } from './storage';
 import { trashPurge } from './trash';
 import { variantsPlan, variantsRender } from './variants';
@@ -31,6 +32,7 @@ export const HANDLERS: HandlerMap = {
   'publish.post': publishPost,
   'publish.metrics': publishMetrics,
   'product.import': productImport,
+  'stock.import': stockImport,
   'script.write': scriptWrite,
   'ad.clone': adClone,
   'inspiration.analyze': inspirationAnalyze,

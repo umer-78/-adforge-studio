@@ -17,3 +17,4 @@ export * from './safe-zones';
 export * from './api/schemas';
 export * from './db';
 export * from './products';
+export * from './stock';

@@ -3,6 +3,8 @@ import type { AssetSource, AssetStatus, AssetType, Capability, LicenseKind, Lice
 /** Asset as the browser sees it: rows plus short-lived signed URLs. */
 export interface AssetView {
   id: string;
+  /** Credit lines owed wherever this file is used (free media that asks for one, and anything made from it). */
+  credits: string[];
   name: string;
   type: AssetType;
   mimeType: string;

@@ -49,6 +49,7 @@ const GET: [RegExp, Handler][] = [
   })],
   [/^\/api\/providers$/, () => f.providers],
   [/^\/api\/sfx$/, () => f.sfx],
+  [/^\/api\/stock$/, (u) => f.stock(u.searchParams.get('kind'), u.searchParams.get('provider'))],
   [/^\/api\/templates$/, () => ({ items: f.templates })],
   [/^\/api\/voices\/usage$/, () => ({ tier: 'creator', characterCount: 41_200, characterLimit: 100_000, resetsAt: new Date(Date.parse(f.NOW_ISO) + 12 * 86_400_000).toISOString() })],
   [/^\/api\/llm\/estimate$/, () => ({ usd: 0.004 })],

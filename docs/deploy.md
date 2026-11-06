@@ -30,6 +30,8 @@ the worker claims them, so either side can restart or scale on its own.
    - `NEXT_PUBLIC_APP_URL` only for a custom domain: without it the site uses its Vercel address
    - `APP_ENCRYPTION_KEY` (see [the encryption key](#the-encryption-key))
    - `APP_OWNER_EMAILS` if only you should be able to sign in
+   - `PEXELS_API_KEY` and `PIXABAY_API_KEY` (both free) to add stock photos and videos to the
+     Free media page. Free music, sounds and photos from Openverse work without a key.
 4. Deploy. Then put the site's address in the Supabase URL settings (step 1.3) and in the
    worker's `NEXT_PUBLIC_APP_URL`, so provider webhooks reach the site.
 

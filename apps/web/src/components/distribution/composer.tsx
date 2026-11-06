@@ -5,7 +5,7 @@ import { CircleAlert, FlaskConical, Plus, Send, Sparkles, TriangleAlert, X } fro
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { PLATFORM_SPECS } from '@adforge/core';
+import { creditsCaption, mergeCredits, missingCredits, PLATFORM_SPECS } from '@adforge/core';
 import { AssetSlot } from '@/components/app/asset-picker';
 import { PlatformIcon, PLATFORM_META } from '@/components/app/platform-icon';
 import { ChipList } from '@/components/growth/shared';
@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import { useDebounced } from '@/lib/hooks/use-debounced';
 import { useMe } from '@/lib/hooks/use-me';
+import { useNow } from '@/lib/hooks/use-now';
 import type { AssetView, PlatformCheckView, PostView, SocialAccountView, SocialPlatformId } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { toLocalInput } from './post-sheet';
@@ -64,14 +65,20 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const [at, setAt] = useState(toLocalInput(null));
   const [aiLabel, setAiLabel] = useState<boolean | null>(null);
   const [rights, setRights] = useState(false);
+  // Free media that asks for a credit: remind until every credit line is in the caption.
+  const credits = mergeCredits(...variants.map((v) => v.asset?.credits ?? []));
+  const missingCredit = missingCredits(credits, [caption, ...variants.map((v) => v.caption ?? '')].join('\n'));
 
   // Prefill from ?asset= / ?assets= (variants of an A/B test).
   const preload = useQueries({ queries: initialAssetIds.slice(0, 4).map((id) => ({ queryKey: ['asset', id, 'view'], queryFn: () => api.get<{ asset: AssetView }>(`/assets/${id}`).then((r) => r.asset), staleTime: 60_000 })) });
   const preloaded = preload.every((q) => q.isSuccess) ? preload.map((q) => q.data!) : null;
-  useEffect(() => {
-    if (preloaded?.length) setVariants(preloaded.map((a) => ({ asset: a, caption: null })));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preloaded?.map((a) => a.id).join(',')]);
+  const preloadKey = preloaded?.map((a) => a.id).join(',') ?? '';
+  const [loadedKey, setLoadedKey] = useState('');
+  if (preloaded?.length && preloadKey !== loadedKey) {
+    setLoadedKey(preloadKey);
+    setVariants(preloaded.map((a) => ({ asset: a, caption: null })));
+  }
+  const now = useNow();
 
   const accounts = useMemo(() => (social.data?.accounts ?? []).filter((a) => a.status === 'active'), [social.data]);
   const selected = accounts.filter((a) => accountIds.includes(a.id));
@@ -112,7 +119,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
     ...(variants.some((v) => !v.asset) ? [abMode ? 'Pick media for every variant.' : 'Pick a video or photo.'] : []),
     ...(!selected.length ? ['Pick at least one account.'] : []),
     ...(needsTitle && !title.trim() ? ['Add a title (YouTube and Pinterest need one).'] : []),
-    ...(when === 'later' && (!at || new Date(at).getTime() < Date.now() + 60_000) ? ['Pick a time at least a minute from now.'] : []),
+    ...(when === 'later' && (!at || new Date(at).getTime() < now + 60_000) ? ['Pick a time at least a minute from now.'] : []),
     ...optionProblems,
     ...(!rights ? ['Confirm you have the rights to publish this.'] : []),
   ];
@@ -149,7 +156,8 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
             caption: v.caption ?? caption,
             hashtags,
             targets: selected.map((a) => {
-              const { commercial: _, ...o } = options[a.id] ?? {};
+              const o = { ...(options[a.id] ?? {}) };
+              delete o.commercial;
               return { socialAccountId: a.id, captionOverride: overrides[a.id]?.trim() ? overrides[a.id] : null, options: o };
             }),
             scheduledAt,
@@ -280,6 +288,24 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
           <Field label="Caption" aside={<span className={cn('tabular-nums', caption.length > captionLimit && 'text-destructive')}>{caption.length}/{captionLimit}</span>}>
             <Textarea rows={5} value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={5000} />
           </Field>
+          {missingCredit.length > 0 && (
+            <Notice
+              tone="warning"
+              title={missingCredit.length === 1 ? 'This media asks for a credit' : `This media asks for ${missingCredit.length} credits`}
+              action={
+                <Button size="xs" variant="outline" onClick={() => setCaption((c) => `${c.trimEnd()}${c.trim() ? '\n\n' : ''}${creditsCaption(missingCredit)}`.slice(0, 5000))}>
+                  Add to caption
+                </Button>
+              }
+            >
+              Its license allows free use when the creator is credited where people see the post:
+              <ul className="mt-1 list-disc pl-4 text-xs">
+                {missingCredit.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
           <Field label="Hashtags" hint="Without the #. Each platform's limit is checked below.">
             <ChipList items={hashtags} onChange={(h) => setHashtags(h.map((x) => x.replace(/^#/, '').replace(/\s+/g, '')))} max={30} maxLength={80} placeholder="skincare" />
           </Field>

@@ -11,6 +11,7 @@ export const LEGAL_UPDATED = new Date('2026-11-06T00:00:00Z');
 export const APP_PREFIXES = [
   '/dashboard',
   '/library',
+  '/free-media',
   '/generate',
   '/prompts',
   '/scripts',

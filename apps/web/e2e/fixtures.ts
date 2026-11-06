@@ -72,6 +72,7 @@ function asset(seed: MediaSeed, n: number): AssetView {
   return {
     id: id('cccccccc', n),
     name: seed.name.charAt(0).toUpperCase() + seed.name.slice(1),
+    credits: [],
     type: seed.type,
     mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
     status: 'ready',
@@ -320,3 +321,41 @@ export const sfx = {
 };
 
 export const templates = TIMELINE_TEMPLATES.map((t) => ({ id: t.id, name: t.name, category: t.category, description: t.description, durationS: t.durationS, aspect: null, builtin: true, updatedAt: null }));
+
+/** Free media search results, using the site's own sample images. */
+export function stock(kind: string | null, provider: string | null) {
+  const k = (kind ?? 'photo') as 'photo' | 'video' | 'music' | 'sound';
+  const providers = [
+    { id: 'pexels', label: 'Pexels', url: 'https://www.pexels.com', kinds: ['photo', 'video'], enabled: true },
+    { id: 'pixabay', label: 'Pixabay', url: 'https://pixabay.com', kinds: ['photo', 'video'], enabled: false },
+    { id: 'openverse', label: 'Openverse', url: 'https://openverse.org', kinds: ['photo', 'music', 'sound'], enabled: true },
+  ];
+  const active = provider ?? (k === 'photo' || k === 'video' ? 'pexels' : 'openverse');
+  const pics = ['before-after', 'listicle', 'problem-solution', 'unboxing', 'us-vs-them'].map((t) => `/templates/${t}.jpg`).concat(['kinetic', 'showcase', 'compare'].map((t) => `/landing/${t}.jpg`));
+  const creators = ['Ana Ruiz', 'Kenji Mori', 'Lea Brandt', 'Omar Haddad', 'Priya Nair', 'Sam Okafor', 'Tess Larsen', 'Yuki Sato'];
+  const visual = k === 'photo' || k === 'video';
+  const items = Array.from({ length: visual ? 8 : 6 }, (_, i) => {
+    const license = active === 'openverse' ? (i % 3 === 2 ? 'by' : i % 2 ? 'pdm' : 'cc0') : active;
+    const title = visual ? ['Morning coffee pour', 'Desk with laptop', 'City lights at night', 'Fresh skincare set', 'Runner at sunrise', 'Beach in summer', 'Product unboxing', 'Happy customer'][i]! : k === 'music' ? ['Bright Morning', 'Upbeat Days', 'Lo-fi Study', 'Cinematic Rise', 'Acoustic Walk', 'Neon Drive'][i]! : ['Whoosh fast', 'Soft click', 'Pop', 'Applause short', 'Notification ding', 'Camera shutter'][i]!;
+    const creator = creators[i % creators.length]!;
+    return {
+      provider: active,
+      id: String(1000 + i),
+      kind: k,
+      title,
+      creator,
+      creatorUrl: null,
+      pageUrl: `https://example.com/media/${1000 + i}`,
+      thumbUrl: visual ? pics[i % pics.length]! : null,
+      previewUrl: k === 'video' ? ['/landing/kinetic.mp4', '/landing/showcase.mp4', '/landing/compare.mp4'][i % 3]! : null,
+      width: visual ? 1080 : null,
+      height: visual ? 1350 : null,
+      durationS: k === 'photo' ? null : k === 'sound' ? 1 + i * 0.6 : k === 'video' ? 8 + i * 3 : 95 + i * 21,
+      license,
+      licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+      credit: license === 'by' ? `“${title}” by ${creator}, CC BY 4.0` : null,
+      source: active === 'openverse' ? (k === 'photo' ? 'wikimedia' : 'freesound') : null,
+    };
+  });
+  return { items, page: 1, hasMore: false, provider: active, providers };
+}

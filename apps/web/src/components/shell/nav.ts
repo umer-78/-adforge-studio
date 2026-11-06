@@ -7,6 +7,7 @@ import {
   Copy,
   FileText,
   FolderOpen,
+  Gift,
   Image,
   LayoutDashboard,
   LayoutTemplate,
@@ -35,6 +36,7 @@ export const NAV: { title: string; items: NavItem[] }[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Recent work, spend and what is running' },
       { href: '/library', label: 'Library', icon: FolderOpen, description: 'Every video, photo and sound' },
+      { href: '/free-media', label: 'Free media', icon: Gift, description: 'Free photos, videos, music and sounds for ads' },
     ],
   },
   {

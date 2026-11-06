@@ -1,12 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArchiveRestore, ArrowLeft, AudioLines, Box, Clapperboard, Crop, Download, Ellipsis, Film, FolderInput, Gauge, ScanSearch, Send, Share2, ShieldAlert, ShieldCheck, Smartphone, Sparkles, Star, Tag, Trash2, Wand2 } from 'lucide-react';
+import { ArchiveRestore, ArrowLeft, AudioLines, Box, Clapperboard, Copy, Crop, Download, ExternalLink, Ellipsis, Film, FolderInput, Gauge, ScanSearch, Send, Share2, ShieldAlert, ShieldCheck, Smartphone, Sparkles, Star, Tag, Trash2, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { formatBytes, formatDuration, formatUsd, isRecord, LICENSE_KINDS, licenseIssueMessage, type AdScore, type LicenseIssue } from '@adforge/core';
+import { creditsCaption, formatBytes, formatDuration, formatUsd, isRecord, mergeCredits, LICENSE_KINDS, licenseIssueMessage, type AdScore, type LicenseIssue } from '@adforge/core';
 import { AssetThumb } from '@/components/app/asset-card';
 import { FeedPreviewButton } from '@/components/preview/feed-preview';
 import { VideoPlayer } from '@/components/app/media-player';
@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import { toAspect, useOpenInEditor } from '@/lib/hooks/use-open-in-editor';
 import type { AssetView } from '@/lib/types';
-import { cn, timeAgo } from '@/lib/utils';
+import { cn, copyText, timeAgo } from '@/lib/utils';
 import { MoveDialog, TagDialog } from './organize-dialogs';
 import { ShareDialog } from './share-dialog';
 
@@ -56,7 +56,7 @@ interface Detail {
     reframes: Record<string, string> | null;
   };
   versions: { id: string; version: number; note: string | null; size_bytes: number; created_at: string }[];
-  license: { id: string; kind: string; commercial_use: boolean; source: string | null; provider: string | null; terms_url: string | null; notes: string | null; expires_at: string | null } | null;
+  license: { id: string; kind: string; commercial_use: boolean; source: string | null; provider: string | null; terms_url: string | null; notes: string | null; expires_at: string | null; attribution: string | null } | null;
   generation: { id: string; capability: string; model: string; provider: string; prompt: string | null; cost_actual_usd: number | null; cost_estimate_usd: number | null; created_at: string } | null;
   derived: { id: string; name: string; type: string; created_at: string }[];
 }
@@ -293,7 +293,7 @@ export function AssetDetail({ id }: { id: string }) {
                 {a.tags.length ? a.tags.map((t) => <Badge key={t} variant="secondary">{t}</Badge>) : <span className="text-xs text-muted-foreground">No tags</span>}
               </div>
             </div>
-            <LicenseCard license={q.data.license} type={a.type} onEdit={() => setDialog('license')} />
+            <LicenseCard license={q.data.license} type={a.type} credits={a.credits} onEdit={() => setDialog('license')} />
             {q.data.generation && (
               <div className="space-y-2 rounded-xl border p-3 text-sm">
                 <div className="flex items-center gap-2 font-medium">
@@ -577,14 +577,51 @@ function ScoreCard({ score, onScore, pending }: { score: AdScore | null; onScore
   );
 }
 
-function LicenseCard({ license, type, onEdit }: { license: Detail['license']; type: string; onEdit: () => void }) {
+function LicenseCard({ license, type, credits, onEdit }: { license: Detail['license']; type: string; credits: string[]; onEdit: () => void }) {
+  const owed = mergeCredits(license?.attribution ? [license.attribution] : [], credits);
   const risky = type === 'audio' && (!license || license.kind === 'unknown' || !license.commercial_use);
   return (
     <div className={cn('flex items-start gap-3 rounded-xl border p-3 text-sm', risky && 'border-warning/50 bg-warning/5')}>
       {risky ? <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" /> : <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />}
       <div className="min-w-0 flex-1">
         <div className="font-medium">{license ? LICENSE_LABEL[license.kind] : 'No license recorded'}</div>
-        <div className="text-xs text-muted-foreground">{license ? `${license.commercial_use ? 'Commercial use allowed' : 'Not cleared for commercial use'}${license.source ? ` · ${license.source}` : ''}${license.expires_at ? ` · until ${new Date(license.expires_at).toLocaleDateString()}` : ''}` : risky ? 'Publishing warns until you record the rights for this audio.' : 'Record where this came from and how you may use it.'}</div>
+        <div className="text-xs text-muted-foreground">{license ? `${license.commercial_use ? 'Commercial use allowed' : 'Not cleared for commercial use'}${license.provider ? ` · ${license.provider}` : license.source && !/^https?:\/\//.test(license.source) ? ` · ${license.source}` : ''}${license.expires_at ? ` · until ${new Date(license.expires_at).toLocaleDateString()}` : ''}` : risky ? 'Publishing warns until you record the rights for this audio.' : 'Record where this came from and how you may use it.'}</div>
+        {license && (license.terms_url || /^https?:\/\//.test(license.source ?? '')) && (
+          <div className="mt-1 flex flex-wrap gap-3 text-xs">
+            {license.terms_url && (
+              <a href={license.terms_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                License terms <ExternalLink className="size-3" />
+              </a>
+            )}
+            {/^https?:\/\//.test(license.source ?? '') && (
+              <a href={license.source!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                Original file <ExternalLink className="size-3" />
+              </a>
+            )}
+          </div>
+        )}
+        {owed.length > 0 && (
+          <div className="mt-2 rounded-lg border border-warning/40 bg-warning/5 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium">{owed.length === 1 ? 'Credit required wherever you use it' : `${owed.length} credits required wherever you use it`}</span>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={async () => {
+                  if (await copyText(creditsCaption(owed))) toast.success(owed.length === 1 ? 'Credit copied' : 'Credits copied');
+                  else toast.error('Could not copy. Select the text instead.');
+                }}
+              >
+                <Copy /> Copy
+              </Button>
+            </div>
+            <ul className="mt-1 space-y-0.5 text-xs break-words text-muted-foreground">
+              {owed.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       <Button size="xs" variant="ghost" onClick={onEdit}>
         {license ? 'Change' : 'Add'}

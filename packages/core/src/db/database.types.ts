@@ -1683,6 +1683,7 @@ export type Database = {
       }
       licenses: {
         Row: {
+          attribution: string | null
           commercial_use: boolean
           created_at: string
           created_by: string | null
@@ -1699,6 +1700,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          attribution?: string | null
           commercial_use?: boolean
           created_at?: string
           created_by?: string | null
@@ -1715,6 +1717,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          attribution?: string | null
           commercial_use?: boolean
           created_at?: string
           created_by?: string | null

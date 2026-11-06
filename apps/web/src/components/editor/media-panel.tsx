@@ -1,11 +1,12 @@
 'use client';
 
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AudioLines, Box, FolderOpen, Layers, Music, Palette, Pause, Play, Plus, Search, Shapes, Sparkles, Type, Upload, type LucideIcon } from 'lucide-react';
+import { AudioLines, Box, FolderOpen, Gift, Layers, Music, Palette, Pause, Play, Plus, Search, Shapes, Sparkles, Type, Upload, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FONT_FAMILIES, formatDuration, googleFontsHref, MOTION_TEMPLATES, SFX_CATEGORIES, type MotionTemplateDef } from '@adforge/core';
 import { AssetThumb } from '@/components/app/asset-card';
 import { sfxCategoryLabel } from '@/components/music/add-audio-dialog';
+import { StockBrowser } from '@/components/stock/stock-browser';
 import { LICENSE_STATE, useMusic, useSfx } from '@/components/music/use-music';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,10 +24,11 @@ import { SHAPES, TEXT_PRESETS } from './presets';
 import { useEditor } from './store';
 import { endDrag, startDrag, type DragItem } from './utils';
 
-type Tab = 'media' | 'text' | 'motion' | 'audio' | 'elements' | 'brand';
+type Tab = 'media' | 'free' | 'text' | 'motion' | 'audio' | 'elements' | 'brand';
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'media', label: 'Media', icon: FolderOpen },
+  { id: 'free', label: 'Free', icon: Gift },
   { id: 'text', label: 'Text', icon: Type },
   { id: 'motion', label: 'Motion', icon: Box },
   { id: 'audio', label: 'Audio', icon: AudioLines },
@@ -90,6 +92,7 @@ export function MediaPanel() {
       </nav>
       <div className="min-w-0 flex-1 overflow-y-auto p-3 scrollbar-thin">
         {tab === 'media' && <MediaTab />}
+        {tab === 'free' && <StockBrowser compact pickLabel="Add" onPicked={(a) => addAsset(a)} />}
         {tab === 'text' && <TextTab />}
         {tab === 'motion' && <MotionTab />}
         {tab === 'audio' && <AudioTab />}
