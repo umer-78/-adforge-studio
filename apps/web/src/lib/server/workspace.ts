@@ -1,5 +1,5 @@
 import 'server-only';
-import { KEY_PROVIDERS, budgetStatus, features, hasServerKey, type KeyProvider, type ServiceClient } from '@adforge/core/server';
+import { KEY_PROVIDERS, budgetStatus, features, hasServerKey, openAccessEmail, type KeyProvider, type ServiceClient } from '@adforge/core/server';
 import { JOB_LABELS, isRecord, type JobRow, type JobType } from '@adforge/core';
 import type { JobView, Me } from '@/lib/types';
 import type { Caller } from './api';
@@ -50,6 +50,7 @@ export async function loadMe(sb: ServiceClient, caller: Caller): Promise<Me> {
     },
     providers,
     budget,
+    openAccess: !!openAccessEmail(),
   };
 }
 

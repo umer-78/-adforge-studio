@@ -94,6 +94,8 @@ export interface Me {
   };
   providers: Record<string, boolean>;
   budget: { spentUsd: number; budgetUsd: number; remainingUsd: number; hardStop: boolean };
+  /** Sign-in is off: everyone uses the owner account, so there is nothing to sign out of. */
+  openAccess: boolean;
 }
 
 export interface ProviderView {
