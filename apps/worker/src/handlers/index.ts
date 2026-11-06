@@ -12,6 +12,7 @@ import { publishMetrics, publishPost } from './publish';
 import { mediaReframe } from './reframe';
 import { renderTimeline } from './render';
 import { scriptWrite } from './script';
+import { storagePurge } from './storage';
 import { trashPurge } from './trash';
 import { variantsPlan, variantsRender } from './variants';
 
@@ -41,4 +42,5 @@ export const HANDLERS: HandlerMap = {
   'ads.sync': adsSync,
   'agent.step': agentStep,
   'trash.purge': trashPurge,
+  'storage.purge': storagePurge,
 };

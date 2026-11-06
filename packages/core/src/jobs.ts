@@ -28,6 +28,12 @@ export const JOB_PAYLOADS = {
   'agent.step': z.object({ runId: id }),
   /** `all` empties a workspace's trash now instead of waiting for its retention period. */
   'trash.purge': z.object({ all: z.boolean().optional() }),
+  /** Removes a deleted workspace's stored files and Mux copies. Queued without a workspace, since its rows are gone. */
+  'storage.purge': z.object({
+    workspaceId: id,
+    drivers: z.array(z.enum(['supabase', 's3'])).min(1).max(2),
+    muxAssetIds: z.array(z.string().min(1).max(200)).max(20_000).default([]),
+  }),
 } as const;
 
 export type JobType = keyof typeof JOB_PAYLOADS;
@@ -63,6 +69,7 @@ export const JOB_LABELS: Record<JobType, string> = {
   'ads.sync': 'Syncing ad results',
   'agent.step': 'Agent working',
   'trash.purge': 'Emptying trash',
+  'storage.purge': 'Deleting stored files',
 };
 
 /** Worker pools: heavy jobs run with lower concurrency. */
@@ -75,5 +82,5 @@ export const JOB_POOLS: { name: string; types: JobType[]; concurrency: number; l
     concurrency: 4,
     leaseS: 600,
   },
-  { name: 'network', types: ['publish.post', 'publish.metrics', 'ads.launch', 'ads.status', 'ads.sync', 'competitors.sync', 'trash.purge'], concurrency: 3, leaseS: 900 },
+  { name: 'network', types: ['publish.post', 'publish.metrics', 'ads.launch', 'ads.status', 'ads.sync', 'competitors.sync', 'trash.purge', 'storage.purge'], concurrency: 3, leaseS: 900 },
 ];

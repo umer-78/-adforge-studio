@@ -1282,6 +1282,36 @@ export type Database = {
           },
         ]
       }
+      data_deletion_requests: {
+        Row: {
+          accounts_removed: number
+          code: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          source: string
+          status: string
+        }
+        Insert: {
+          accounts_removed?: number
+          code: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          source: string
+          status?: string
+        }
+        Update: {
+          accounts_removed?: number
+          code?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
       folders: {
         Row: {
           created_at: string

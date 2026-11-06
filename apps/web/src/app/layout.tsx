@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
+import { SITE_URL } from '@/lib/site';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -7,11 +8,8 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 const instrumentSerif = Instrument_Serif({ variable: '--font-instrument-serif', subsets: ['latin'], weight: '400', style: ['normal', 'italic'] });
 
-// NEXT_PUBLIC_APP_URL wins; a Vercel deploy without it uses the project's production domain.
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000');
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE_URL),
   title: { default: 'AdForge Studio', template: '%s · AdForge Studio' },
   description: 'Generate, edit, voice, score and publish ad videos and photos in one studio.',
   applicationName: 'AdForge Studio',

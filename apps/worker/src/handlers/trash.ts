@@ -52,7 +52,7 @@ async function pruneSnapshots(ctx: JobContext) {
   return removed;
 }
 
-/** Expired sign-in states, old rate-limit windows, webhook receipts and finished jobs. */
+/** Expired sign-in states, old rate-limit windows, webhook receipts, finished jobs and old deletion receipts. */
 async function housekeeping(ctx: JobContext) {
   const now = new Date().toISOString();
   const results = await Promise.all([
@@ -61,10 +61,11 @@ async function housekeeping(ctx: JobContext) {
     ctx.sb.from('webhook_events').delete({ count: 'exact' }).lt('received_at', ago(30 * DAY_MS)),
     ctx.sb.from('jobs').delete({ count: 'exact' }).in('status', ['succeeded', 'canceled']).lt('completed_at', ago(14 * DAY_MS)),
     ctx.sb.from('jobs').delete({ count: 'exact' }).eq('status', 'failed').lt('completed_at', ago(30 * DAY_MS)),
+    ctx.sb.from('data_deletion_requests').delete({ count: 'exact' }).lt('created_at', ago(90 * DAY_MS)),
   ]);
   for (const r of results) if (r.error) ctx.log.warn({ err: r.error.message }, 'housekeeping step failed');
-  const [oauth, rateLimits, webhooks, jobsDone, jobsFailed] = results.map((r) => r.count ?? 0);
-  return { oauth, rateLimits, webhooks, jobs: (jobsDone ?? 0) + (jobsFailed ?? 0) };
+  const [oauth, rateLimits, webhooks, jobsDone, jobsFailed, deletionReceipts] = results.map((r) => r.count ?? 0);
+  return { oauth, rateLimits, webhooks, jobs: (jobsDone ?? 0) + (jobsFailed ?? 0), deletionReceipts };
 }
 
 export const trashPurge: JobHandler<'trash.purge'> = {

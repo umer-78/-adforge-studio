@@ -81,6 +81,30 @@ docker run --env-file .env -p 8080:8080 adforge-worker
 curl localhost:8080/healthz
 ```
 
+## 4. Platform apps
+
+Publishing and ads use each platform's developer app (the `GOOGLE_`, `TIKTOK_`, `META_`, `LINKEDIN_`,
+`X_` and `PINTEREST_` values in `.env.example`). App reviews ask for these pages, which the site has:
+
+| Field | Address |
+| --- | --- |
+| Privacy policy | `https://<your-site>/privacy` |
+| Terms of service | `https://<your-site>/terms` |
+| Data deletion instructions | `https://<your-site>/data-deletion` |
+
+Set `NEXT_PUBLIC_CONTACT_EMAIL` on Vercel so those pages show a contact address; reviewers expect one.
+
+In the Meta app, also set:
+
+- **App settings > Basic > User data deletion**: choose *Data deletion callback URL* and enter
+  `https://<your-site>/api/meta/data-deletion`. When someone removes the app on Facebook and asks
+  for deletion, the site deletes the Pages, Instagram accounts and ad accounts their Facebook login
+  connected, and Facebook shows them a code they can check on `/data-deletion`.
+- **Facebook Login > Settings > Deauthorize callback URL**: `https://<your-site>/api/meta/deauthorize`.
+  Removing the app then disconnects those accounts.
+
+Both callbacks verify Meta's signature with `META_APP_SECRET`.
+
 ## The encryption key
 
 `APP_ENCRYPTION_KEY` encrypts the provider keys and social account tokens saved in the studio. The

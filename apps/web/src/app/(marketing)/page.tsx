@@ -221,13 +221,13 @@ export default function LandingPage() {
         <Marquee
           seconds={90}
           items={modelNames.map((name) => (
-            <span className={chip}>
+            <span key={name} className={chip}>
               <Sparkle className="size-3 text-primary" />
               {name}
             </span>
           ))}
         />
-        <Marquee reverse seconds={100} className="mt-3" items={capabilityNames.map((name) => <span className={chip}>{name}</span>)} />
+        <Marquee reverse seconds={100} className="mt-3" items={capabilityNames.map((name) => <span key={name} className={chip}>{name}</span>)} />
       </section>
 
       {/* The tools */}

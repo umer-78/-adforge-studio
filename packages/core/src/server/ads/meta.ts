@@ -1,7 +1,7 @@
 import { sleep } from '../../utils';
 import { env } from '../env';
 import { api, num, PlatformError } from '../social/http';
-import { graph, metaAuthError, metaAuthorizeUrl, metaExchange, metaGet, metaPost } from '../social/meta';
+import { graph, metaAuthError, metaAuthorizeUrl, metaExchange, metaGet, metaPost, metaUserId } from '../social/meta';
 import { emptyInsights, type AdAccountInfo, type AdInsights, type AdObjective, type AdsPlatform, type LaunchResult, type ReviewState } from './types';
 
 const ADS_SCOPES = ['ads_management', 'ads_read', 'business_management', 'pages_show_list', 'pages_read_engagement', 'instagram_basic'];
@@ -90,7 +90,7 @@ export const metaAds: AdsPlatform = {
   authorizeUrl: ({ state, redirectUri }) => metaAuthorizeUrl(ADS_SCOPES, state, redirectUri),
   exchange: (code, redirectUri) => metaExchange(code, redirectUri),
   async accounts(token) {
-    const [accounts, pages] = await Promise.all([
+    const [accounts, pages, fbUserId] = await Promise.all([
       metaGet<{ data: { id: string; name: string; currency: string; timezone_name: string; account_status: number; disable_reason?: number }[] }>('/me/adaccounts', token.accessToken, {
         fields: 'id,name,currency,timezone_name,account_status,disable_reason',
         limit: '100',
@@ -99,6 +99,7 @@ export const metaAds: AdsPlatform = {
         fields: 'id,name,instagram_business_account{id,username}',
         limit: '100',
       }).catch(() => ({ data: [] })),
+      metaUserId(token.accessToken),
     ]);
     const identities = pages.data.map((p) => ({ pageId: p.id, pageName: p.name, instagramUserId: p.instagram_business_account?.id ?? null, instagramUsername: p.instagram_business_account?.username ?? null }));
     return accounts.data.map(
@@ -109,7 +110,7 @@ export const metaAds: AdsPlatform = {
         timezone: a.timezone_name,
         status: a.account_status === 1 ? 'active' : 'error',
         statusDetail: a.account_status === 1 ? null : `Ad account is ${ACCOUNT_STATUS[a.account_status] ?? 'unavailable'}.`,
-        meta: { identities, pageId: identities[0]?.pageId ?? null, instagramUserId: identities[0]?.instagramUserId ?? null, pixelId: null },
+        meta: { identities, pageId: identities[0]?.pageId ?? null, instagramUserId: identities[0]?.instagramUserId ?? null, pixelId: null, fbUserId },
       }),
     );
   },

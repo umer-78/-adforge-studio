@@ -19,7 +19,7 @@ export { ayrshareAccounts, ayrshareMetrics, ayrsharePublish } from './ayrshare';
 export { tiktokCreatorInfo, type TikTokCreatorInfo } from './tiktok';
 export { pinterestBoards, type PinterestBoard } from './pinterest';
 export { linkedinCommentary } from './linkedin';
-export { graph, metaAuthorizeUrl, metaExchange, metaGet, metaPost, metaAuthError } from './meta';
+export { graph, metaAuthorizeUrl, metaExchange, metaGet, metaPost, metaAuthError, metaUserId } from './meta';
 
 export const CONNECTORS: Record<ConnectorId, Connector> = {
   youtube: youtubeConnector,

@@ -20,6 +20,12 @@ export async function metaPost<T>(path: string, token: string, form: Record<stri
   return data;
 }
 
+/** The app-scoped ID of the Facebook user who granted the token, or null if Meta does not return it. */
+export async function metaUserId(token: string): Promise<string | null> {
+  const me = await metaGet<{ id?: string }>('/me', token, { fields: 'id' }).catch(() => null);
+  return me?.id && /^\d{1,40}$/.test(me.id) ? me.id : null;
+}
+
 const SOCIAL_SCOPES = [
   'pages_show_list',
   'pages_read_engagement',
@@ -69,6 +75,8 @@ export const metaConnector: Connector = {
   exchange: (code, redirectUri) => metaExchange(code, redirectUri),
   async accounts(token) {
     const out: ConnectedAccount[] = [];
+    // The app-scoped user ID ties these accounts to Meta's data deletion and deauthorize callbacks.
+    const fbUserId = await metaUserId(token.accessToken);
     let next: string | null = graph(
       `/me/accounts?${new URLSearchParams({ fields: 'id,name,username,access_token,picture.type(large){url},instagram_business_account{id,username,name,profile_picture_url}', limit: '100', access_token: token.accessToken })}`,
     );
@@ -77,10 +85,10 @@ export const metaConnector: Connector = {
       for (const p of res.data.data) {
         // Page tokens fetched with a long-lived user token do not expire.
         const pageToken = { accessToken: p.access_token, refreshToken: null, expiresAt: null, scopes: token.scopes ?? [] };
-        out.push({ platform: 'facebook', externalId: p.id, handle: p.username ?? null, displayName: p.name, avatarUrl: p.picture?.data?.url ?? null, meta: {}, token: pageToken });
+        out.push({ platform: 'facebook', externalId: p.id, handle: p.username ?? null, displayName: p.name, avatarUrl: p.picture?.data?.url ?? null, meta: { fbUserId }, token: pageToken });
         const ig = p.instagram_business_account;
         if (ig) {
-          out.push({ platform: 'instagram', externalId: ig.id, handle: ig.username ?? null, displayName: ig.name ?? ig.username ?? null, avatarUrl: ig.profile_picture_url ?? null, meta: { pageId: p.id, pageName: p.name }, token: pageToken });
+          out.push({ platform: 'instagram', externalId: ig.id, handle: ig.username ?? null, displayName: ig.name ?? ig.username ?? null, avatarUrl: ig.profile_picture_url ?? null, meta: { pageId: p.id, pageName: p.name, fbUserId }, token: pageToken });
         }
       }
       next = res.data.paging?.next ?? null;

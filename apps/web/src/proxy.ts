@@ -1,29 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-/** Routes inside the signed-in app. Everything else (landing, legal, shares, auth) is public. */
-const APP_PREFIXES = [
-  '/dashboard',
-  '/library',
-  '/generate',
-  '/prompts',
-  '/scripts',
-  '/voice',
-  '/music',
-  '/photo',
-  '/motion',
-  '/editor',
-  '/templates',
-  '/products',
-  '/clone',
-  '/variants',
-  '/inspiration',
-  '/ads',
-  '/publish',
-  '/agent',
-  '/analytics',
-  '/settings',
-];
+import { APP_PREFIXES } from '@/lib/site';
 
 const isAppPath = (p: string) => APP_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 
