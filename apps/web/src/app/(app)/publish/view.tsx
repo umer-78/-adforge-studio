@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { PlatformIcon } from '@/components/app/platform-icon';
 import { PostCalendar } from '@/components/distribution/calendar';
 import { Composer } from '@/components/distribution/composer';
+import { CsvImportButton } from '@/components/distribution/csv-import';
 import { fmtWhen, MetricsLine, PostSheet } from '@/components/distribution/post-sheet';
 import { usePosts } from '@/components/distribution/use-distribution';
 import { StatusPill } from '@/components/growth/shared';
@@ -30,15 +31,18 @@ export function PublishView() {
   };
   return (
     <div className="space-y-5">
-      <Segmented
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: 'compose', label: 'Compose' },
-          { value: 'calendar', label: 'Calendar' },
-          { value: 'posts', label: 'All posts' },
-        ]}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'compose', label: 'Compose' },
+            { value: 'calendar', label: 'Calendar' },
+            { value: 'posts', label: 'All posts' },
+          ]}
+        />
+        <CsvImportButton />
+      </div>
       {tab === 'compose' && <Composer initialAssetIds={initialAssets} initialAbGroup={params.get('abGroup')} onPublished={() => setTab('posts')} />}
       {tab === 'calendar' && <PostCalendar onOpen={setOpen} />}
       {tab === 'posts' && <PostList onOpen={setOpen} />}
@@ -49,6 +53,7 @@ export function PublishView() {
 
 const FILTERS = [
   { value: 'all', label: 'All' },
+  { value: 'pending_approval', label: 'Needs approval' },
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'publishing', label: 'Publishing' },
   { value: 'published', label: 'Published' },

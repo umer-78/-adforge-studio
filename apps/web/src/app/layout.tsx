@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
+import { SITE_URL } from '@/lib/site';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -8,7 +9,7 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 const instrumentSerif = Instrument_Serif({ variable: '--font-instrument-serif', subsets: ['latin'], weight: '400', style: ['normal', 'italic'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(SITE_URL),
   title: { default: 'AdForge Studio', template: '%s · AdForge Studio' },
   description: 'Generate, edit, voice, score and publish ad videos and photos in one studio.',
   applicationName: 'AdForge Studio',

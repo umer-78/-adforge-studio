@@ -1000,6 +1000,156 @@ export type Database = {
           },
         ]
       }
+      bio_daily: {
+        Row: {
+          count: number
+          day: string
+          link_id: string | null
+          page_id: string
+        }
+        Insert: {
+          count?: number
+          day: string
+          link_id?: string | null
+          page_id: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          link_id?: string | null
+          page_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bio_daily_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "bio_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bio_daily_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "bio_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bio_links: {
+        Row: {
+          clicks: number
+          created_at: string
+          enabled: boolean
+          id: string
+          label: string
+          page_id: string
+          position: number
+          updated_at: string
+          url: string
+          workspace_id: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label: string
+          page_id: string
+          position?: number
+          updated_at?: string
+          url: string
+          workspace_id: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label?: string
+          page_id?: string
+          position?: number
+          updated_at?: string
+          url?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bio_links_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "bio_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bio_links_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bio_pages: {
+        Row: {
+          avatar_asset_id: string | null
+          bio: string
+          created_at: string
+          created_by: string | null
+          id: string
+          published: boolean
+          slug: string
+          theme: Json
+          title: string
+          updated_at: string
+          views: number
+          workspace_id: string
+        }
+        Insert: {
+          avatar_asset_id?: string | null
+          bio?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published?: boolean
+          slug: string
+          theme?: Json
+          title?: string
+          updated_at?: string
+          views?: number
+          workspace_id: string
+        }
+        Update: {
+          avatar_asset_id?: string | null
+          bio?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published?: boolean
+          slug?: string
+          theme?: Json
+          title?: string
+          updated_at?: string
+          views?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bio_pages_avatar_asset_id_fkey"
+            columns: ["avatar_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bio_pages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_kits: {
         Row: {
           caption_style: Json
@@ -1281,6 +1431,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      data_deletion_requests: {
+        Row: {
+          accounts_removed: number
+          code: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          source: string
+          status: string
+        }
+        Insert: {
+          accounts_removed?: number
+          code: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          source: string
+          status?: string
+        }
+        Update: {
+          accounts_removed?: number
+          code?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
       }
       folders: {
         Row: {
@@ -1653,6 +1833,7 @@ export type Database = {
       }
       licenses: {
         Row: {
+          attribution: string | null
           commercial_use: boolean
           created_at: string
           created_by: string | null
@@ -1669,6 +1850,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          attribution?: string | null
           commercial_use?: boolean
           created_at?: string
           created_by?: string | null
@@ -1685,6 +1867,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          attribution?: string | null
           commercial_use?: boolean
           created_at?: string
           created_by?: string | null
@@ -1921,6 +2104,9 @@ export type Database = {
           error: string | null
           external_id: string | null
           external_url: string | null
+          first_comment_error: string | null
+          first_comment_id: string | null
+          first_comment_status: string | null
           hashtags_override: string[] | null
           id: string
           job_id: string | null
@@ -1942,6 +2128,9 @@ export type Database = {
           error?: string | null
           external_id?: string | null
           external_url?: string | null
+          first_comment_error?: string | null
+          first_comment_id?: string | null
+          first_comment_status?: string | null
           hashtags_override?: string[] | null
           id?: string
           job_id?: string | null
@@ -1963,6 +2152,9 @@ export type Database = {
           error?: string | null
           external_id?: string | null
           external_url?: string | null
+          first_comment_error?: string | null
+          first_comment_id?: string | null
+          first_comment_status?: string | null
           hashtags_override?: string[] | null
           id?: string
           job_id?: string | null
@@ -2017,14 +2209,19 @@ export type Database = {
           caption: string
           created_at: string
           created_by: string | null
+          first_comment: string | null
           hashtags: string[]
           id: string
           project_id: string | null
           published_at: string | null
           render_id: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           rights_acknowledged: boolean
           scheduled_at: string | null
           status: string
+          submitted_by: string | null
           title: string | null
           updated_at: string
           workspace_id: string
@@ -2037,14 +2234,19 @@ export type Database = {
           caption?: string
           created_at?: string
           created_by?: string | null
+          first_comment?: string | null
           hashtags?: string[]
           id?: string
           project_id?: string | null
           published_at?: string | null
           render_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rights_acknowledged?: boolean
           scheduled_at?: string | null
           status?: string
+          submitted_by?: string | null
           title?: string | null
           updated_at?: string
           workspace_id: string
@@ -2057,14 +2259,19 @@ export type Database = {
           caption?: string
           created_at?: string
           created_by?: string | null
+          first_comment?: string | null
           hashtags?: string[]
           id?: string
           project_id?: string | null
           published_at?: string | null
           render_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rights_acknowledged?: boolean
           scheduled_at?: string | null
           status?: string
+          submitted_by?: string | null
           title?: string | null
           updated_at?: string
           workspace_id?: string
@@ -3284,6 +3491,56 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          revoked_at: string | null
+          role: string
+          token_hash: string
+          workspace_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          role: string
+          token_hash: string
+          workspace_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          role?: string
+          token_hash?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string
@@ -3368,6 +3625,8 @@ export type Database = {
           video_views: number
         }[]
       }
+      bio_track: { Args: { p_link?: string; p_page: string }; Returns: undefined }
+      has_joined_workspace: { Args: never; Returns: boolean }
       claim_jobs: {
         Args: {
           p_lease_seconds?: number

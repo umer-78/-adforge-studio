@@ -1,8 +1,10 @@
-import type { AssetSource, AssetStatus, AssetType, Capability, LicenseKind, LicenseState, KeyProvider, ModelDef, ScriptLine } from '@adforge/core';
+import type { AssetSource, AssetStatus, AssetType, BioTheme, Capability, LicenseKind, LicenseState, KeyProvider, ModelDef, ScriptLine } from '@adforge/core';
 
 /** Asset as the browser sees it: rows plus short-lived signed URLs. */
 export interface AssetView {
   id: string;
+  /** Credit lines owed wherever this file is used (free media that asks for one, and anything made from it). */
+  credits: string[];
   name: string;
   type: AssetType;
   mimeType: string;
@@ -651,6 +653,8 @@ export interface PostTargetView {
   status: 'pending' | 'publishing' | 'processing' | 'published' | 'failed' | 'canceled';
   externalUrl: string | null;
   error: string | null;
+  /** What happened to the post's first comment here; null until the post is out or when there is none. */
+  firstComment: { status: 'posted' | 'failed' | 'unsupported'; error: string | null } | null;
   attempts: number;
   publishedAt: string | null;
   metrics: PostMetricsView;
@@ -661,8 +665,12 @@ export interface PostView {
   id: string;
   title: string | null;
   caption: string;
+  /** Posted as a comment under each published copy, where the network allows it. */
+  firstComment: string | null;
+  /** Approval trail when the workspace reviews posts: who sent it, when it was reviewed, and any note. */
+  review: { submittedBy: string | null; reviewedAt: string | null; note: string | null } | null;
   hashtags: string[];
-  status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'partially_published' | 'failed' | 'canceled';
+  status: 'draft' | 'pending_approval' | 'scheduled' | 'publishing' | 'published' | 'partially_published' | 'failed' | 'canceled';
   scheduledAt: string | null;
   publishedAt: string | null;
   abGroup: string | null;
@@ -931,4 +939,53 @@ export interface AgentPlanEstimateView {
   generate: { low: number; high: number; shotsLow: number; shotsHigh: number; voice: number; modelId: string; modelLabel: string } | null;
   optimize: number;
   total: { low: number; high: number };
+}
+
+/* ------------------------------- Link in bio ------------------------------- */
+
+export interface BioLinkView {
+  id: string;
+  label: string;
+  url: string;
+  enabled: boolean;
+  clicks: number;
+}
+
+export interface BioPageView {
+  id: string;
+  slug: string;
+  title: string;
+  bio: string;
+  avatarAssetId: string | null;
+  avatarUrl: string | null;
+  theme: BioTheme;
+  published: boolean;
+  views: number;
+  links: BioLinkView[];
+  createdAt: string;
+}
+
+export interface BioStats {
+  days: { day: string; views: number; clicks: number }[];
+  linkClicks: Record<string, number>;
+}
+
+/* ---------------------------------- Team ---------------------------------- */
+
+export interface TeamMemberView {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+  role: 'owner' | 'admin' | 'editor' | 'viewer';
+  joinedAt: string;
+  isYou: boolean;
+}
+
+export interface InviteView {
+  id: string;
+  email: string;
+  role: 'admin' | 'editor' | 'viewer';
+  expiresAt: string;
+  createdAt: string;
 }

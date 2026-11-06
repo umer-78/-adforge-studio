@@ -6,6 +6,7 @@ import { toJobView } from '@/lib/server/workspace';
 
 const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('reprocess') }),
+  z.object({ action: z.literal('check') }),
   z.object({ action: z.literal('analyze'), steps: z.array(z.enum(['transcribe', 'tags', 'embed'])).min(1).default(['transcribe', 'tags', 'embed']) }),
   z.object({ action: z.literal('score'), platform: z.string().max(40).optional() }),
   z.object({ action: z.literal('reframe'), aspect: z.enum(['9:16', '1:1', '4:5', '16:9']) }),
@@ -27,6 +28,10 @@ export const POST = route({ body: actionSchema, limit: ['asset-actions', 240, 36
       if (asset.status === 'uploading') throw badRequest('The upload has not finished.');
       check(await sb.from('assets').update({ status: 'processing', processing_error: null }).eq('id', asset.id), 'Could not restart processing');
       job = await enqueueJob(sb, { ...base, type: 'media.process', payload: { assetId: asset.id }, priority: 5, idempotencyKey: `media.process:${asset.id}:retry:${bucket}` });
+      break;
+    case 'check':
+      if (asset.type !== 'video' && asset.type !== 'audio') throw badRequest('Checks work on videos and audio.');
+      job = await enqueueJob(sb, { ...base, type: 'media.check', payload: { assetId: asset.id }, idempotencyKey: `media.check:${asset.id}:${bucket}` });
       break;
     case 'analyze':
       if (!(await providerKey(ws, 'anthropic')) && !(await providerKey(ws, 'openai'))) throw badRequest('Add a Claude or OpenAI key in Settings → Providers to analyze files.');

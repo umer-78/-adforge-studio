@@ -1,13 +1,13 @@
 import { asJson, isRecord } from '@adforge/core';
-import { enqueueJob } from '@adforge/core/server';
 import * as z from 'zod';
 import { badRequest, check, logActivity, owned, route } from '@/lib/server/api';
 import { toPostViews } from '@/lib/server/distribution';
-import { cleanHashtags } from '@/lib/server/posts';
+import { cleanHashtags, enqueuePendingTargets, needsApproval } from '@/lib/server/posts';
 
 const patch = z.object({
   title: z.string().max(200).nullish(),
   caption: z.string().max(5000).optional(),
+  firstComment: z.string().trim().max(2200).nullish(),
   hashtags: z.array(z.string().max(80)).max(30).optional(),
   /** A new time, or null to publish now. */
   scheduledAt: z.string().datetime({ offset: true }).nullish(),
@@ -23,11 +23,11 @@ export const GET = route({}, async ({ sb, caller, params }) => {
 /** Edits, reschedules, publishes now or cancels a post that has not gone out yet. */
 export const PATCH = route({ body: patch, scope: 'publish' }, async ({ sb, caller, params, body }) => {
   const row = await owned(sb, 'posts', params.id!, caller, 'The post');
-  if (!['draft', 'scheduled'].includes(row.status)) throw badRequest(row.status === 'publishing' ? 'This post is being published right now.' : 'This post already went out; change it on the platform.');
+  if (!['draft', 'scheduled', 'pending_approval'].includes(row.status)) throw badRequest(row.status === 'publishing' ? 'This post is being published right now.' : 'This post already went out; change it on the platform.');
 
   if (body.status === 'canceled') {
     check(await sb.from('post_targets').update({ status: 'canceled' }).eq('post_id', row.id).eq('status', 'pending'), 'Could not cancel the post');
-    const updated = check(await sb.from('posts').update({ status: 'canceled' }).eq('id', row.id).in('status', ['draft', 'scheduled']).select('*').maybeSingle(), 'Could not cancel the post');
+    const updated = check(await sb.from('posts').update({ status: 'canceled' }).eq('id', row.id).in('status', ['draft', 'scheduled', 'pending_approval']).select('*').maybeSingle(), 'Could not cancel the post');
     if (!updated) throw badRequest('This post just started publishing.');
     await logActivity(sb, caller, 'post.canceled', 'post', row.id);
     return (await toPostViews(sb, caller.workspaceId, [updated]))[0];
@@ -57,6 +57,10 @@ export const PATCH = route({ body: patch, scope: 'publish' }, async ({ sb, calle
     status = later ? 'scheduled' : 'publishing';
     scheduledAt = later ? when.toISOString() : null;
   }
+  // An editor's change to a post that is set to go out sends it back for approval.
+  const approval = await needsApproval(sb, caller);
+  const submitted = approval && (body.scheduledAt !== undefined || row.status !== 'draft');
+  if (submitted) status = 'pending_approval';
   // The status guard keeps the scheduler and this edit from both publishing the post.
   const updated = check(
     await sb
@@ -64,9 +68,11 @@ export const PATCH = route({ body: patch, scope: 'publish' }, async ({ sb, calle
       .update({
         ...(body.title !== undefined ? { title: body.title?.trim() || null } : {}),
         ...(body.caption !== undefined ? { caption: body.caption } : {}),
+        ...(body.firstComment !== undefined ? { first_comment: body.firstComment || null } : {}),
         ...(body.hashtags ? { hashtags: cleanHashtags(body.hashtags) } : {}),
         status,
         scheduled_at: scheduledAt,
+        ...(submitted ? { submitted_by: caller.userId, reviewed_by: null, reviewed_at: null } : {}),
       })
       .eq('id', row.id)
       .eq('status', row.status)
@@ -75,13 +81,8 @@ export const PATCH = route({ body: patch, scope: 'publish' }, async ({ sb, calle
     'Could not save the post',
   );
   if (!updated) throw badRequest('This post just started publishing.');
-  if (status === 'publishing') {
-    const { data: targets } = await sb.from('post_targets').select('id').eq('post_id', row.id).eq('status', 'pending');
-    for (const t of targets ?? []) {
-      const job = await enqueueJob(sb, { type: 'publish.post', payload: { postTargetId: t.id }, workspaceId: caller.workspaceId, createdBy: caller.userId, priority: 10, idempotencyKey: `publish.post:${t.id}:now:${Date.now()}` });
-      await sb.from('post_targets').update({ job_id: job.id }).eq('id', t.id);
-    }
-  }
+  if (status === 'publishing') await enqueuePendingTargets(sb, caller, row.id, 'now');
+  if (submitted) await logActivity(sb, caller, 'post.submitted', 'post', row.id);
   return (await toPostViews(sb, caller.workspaceId, [updated]))[0];
 });
 

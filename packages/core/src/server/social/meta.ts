@@ -20,6 +20,12 @@ export async function metaPost<T>(path: string, token: string, form: Record<stri
   return data;
 }
 
+/** The app-scoped ID of the Facebook user who granted the token, or null if Meta does not return it. */
+export async function metaUserId(token: string): Promise<string | null> {
+  const me = await metaGet<{ id?: string }>('/me', token, { fields: 'id' }).catch(() => null);
+  return me?.id && /^\d{1,40}$/.test(me.id) ? me.id : null;
+}
+
 const SOCIAL_SCOPES = [
   'pages_show_list',
   'pages_read_engagement',
@@ -29,6 +35,9 @@ const SOCIAL_SCOPES = [
   'instagram_basic',
   'instagram_content_publish',
   'instagram_manage_insights',
+  // First comments on the posts this app publishes.
+  'instagram_manage_comments',
+  'pages_manage_engagement',
 ];
 
 export function metaAuthorizeUrl(scopes: string[], state: string, redirectUri: string): string {
@@ -69,6 +78,8 @@ export const metaConnector: Connector = {
   exchange: (code, redirectUri) => metaExchange(code, redirectUri),
   async accounts(token) {
     const out: ConnectedAccount[] = [];
+    // The app-scoped user ID ties these accounts to Meta's data deletion and deauthorize callbacks.
+    const fbUserId = await metaUserId(token.accessToken);
     let next: string | null = graph(
       `/me/accounts?${new URLSearchParams({ fields: 'id,name,username,access_token,picture.type(large){url},instagram_business_account{id,username,name,profile_picture_url}', limit: '100', access_token: token.accessToken })}`,
     );
@@ -77,10 +88,10 @@ export const metaConnector: Connector = {
       for (const p of res.data.data) {
         // Page tokens fetched with a long-lived user token do not expire.
         const pageToken = { accessToken: p.access_token, refreshToken: null, expiresAt: null, scopes: token.scopes ?? [] };
-        out.push({ platform: 'facebook', externalId: p.id, handle: p.username ?? null, displayName: p.name, avatarUrl: p.picture?.data?.url ?? null, meta: {}, token: pageToken });
+        out.push({ platform: 'facebook', externalId: p.id, handle: p.username ?? null, displayName: p.name, avatarUrl: p.picture?.data?.url ?? null, meta: { fbUserId }, token: pageToken });
         const ig = p.instagram_business_account;
         if (ig) {
-          out.push({ platform: 'instagram', externalId: ig.id, handle: ig.username ?? null, displayName: ig.name ?? ig.username ?? null, avatarUrl: ig.profile_picture_url ?? null, meta: { pageId: p.id, pageName: p.name }, token: pageToken });
+          out.push({ platform: 'instagram', externalId: ig.id, handle: ig.username ?? null, displayName: ig.name ?? ig.username ?? null, avatarUrl: ig.profile_picture_url ?? null, meta: { pageId: p.id, pageName: p.name, fbUserId }, token: pageToken });
         }
       }
       next = res.data.paging?.next ?? null;
@@ -116,6 +127,10 @@ export const instagramPublisher: Publisher = {
     const published = await metaPost<{ id: string }>(`/${ctx.account.externalId}/media_publish`, ctx.accessToken, { creation_id: containerId });
     const media = await metaGet<{ permalink?: string }>(`/${published.id}`, ctx.accessToken, { fields: 'permalink' }).catch(() => ({ permalink: undefined }));
     return { status: 'published', externalId: published.id, externalUrl: media.permalink ?? null };
+  },
+  async comment({ accessToken }, mediaId, text) {
+    const res = await metaPost<{ id?: string }>(`/${mediaId}/comments`, accessToken, { message: text.slice(0, 2200) });
+    return { id: res.id ?? null };
   },
   async metrics({ accessToken }, mediaId) {
     const base = await metaGet<{ like_count?: number; comments_count?: number; media_product_type?: string }>(`/${mediaId}`, accessToken, { fields: 'like_count,comments_count,media_product_type' });
@@ -209,6 +224,10 @@ export const facebookPublisher: Publisher = {
     if (!done) return { status: 'processing', state, retryAfterS: 20, externalId: videoId };
     const url = v.permalink_url ? (v.permalink_url.startsWith('http') ? v.permalink_url : `https://www.facebook.com${v.permalink_url}`) : null;
     return { status: 'published', externalId: videoId, externalUrl: url };
+  },
+  async comment({ accessToken }, id, text) {
+    const res = await metaPost<{ id?: string }>(`/${id}/comments`, accessToken, { message: text.slice(0, 8000) });
+    return { id: res.id ?? null };
   },
   async metrics({ accessToken }, id): Promise<MetricsSnapshot | null> {
     const out = emptyMetrics();

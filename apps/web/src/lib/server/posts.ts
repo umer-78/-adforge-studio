@@ -1,7 +1,7 @@
 import 'server-only';
-import { PLATFORM_SPECS, validateForPlatform, type AssetRow, type SocialAccountRow, type SocialPlatform } from '@adforge/core';
-import { badRequest, type Caller } from './api';
-import type { ServiceClient } from '@adforge/core/server';
+import { parseWorkspaceSettings, PLATFORM_SPECS, validateForPlatform, type AssetRow, type SocialAccountRow, type SocialPlatform } from '@adforge/core';
+import { enqueueJob, type ServiceClient } from '@adforge/core/server';
+import { badRequest, hasRole, type Caller } from './api';
 import type { PlatformCheckView } from '@/lib/types';
 
 export interface TargetInput {
@@ -38,3 +38,20 @@ export function platformChecks(asset: AssetRow, post: { title?: string | null; c
 }
 
 export const cleanHashtags = (tags: string[]) => [...new Set(tags.map((h) => h.trim().replace(/^#+/, '').replace(/\s+/g, '')).filter(Boolean))];
+
+/** True when this caller's posts wait for an admin: the workspace asks for approval and they are an editor. */
+export async function needsApproval(sb: ServiceClient, caller: Caller): Promise<boolean> {
+  if (hasRole(caller, 'admin')) return false;
+  const { data } = await sb.from('workspaces').select('settings').eq('id', caller.workspaceId).maybeSingle();
+  return parseWorkspaceSettings(data?.settings).requirePostApproval;
+}
+
+/** Queues publishing for every account on the post that has not gone out yet. */
+export async function enqueuePendingTargets(sb: ServiceClient, caller: Caller, postId: string, reason: string) {
+  const { data: targets } = await sb.from('post_targets').select('id').eq('post_id', postId).eq('status', 'pending');
+  for (const t of targets ?? []) {
+    const job = await enqueueJob(sb, { type: 'publish.post', payload: { postTargetId: t.id }, workspaceId: caller.workspaceId, createdBy: caller.userId, priority: 10, idempotencyKey: `publish.post:${t.id}:${reason}:${Date.now()}` });
+    await sb.from('post_targets').update({ job_id: job.id }).eq('id', t.id);
+  }
+}
+

@@ -207,6 +207,8 @@ export const mediaProcess: JobHandler<'media.process'> = {
     if (error) throw new Error(`Could not save processing results: ${error.message}`);
 
     await queueAutoAnalysis(ctx, asset, p);
+    // Flash, loudness and sound-off checks run on every ad-length video.
+    if (asset.type === 'video' && (p.durationS ?? 0) <= 300) await ctx.enqueue('media.check', { assetId: asset.id }, { idempotencyKey: `media.check:${asset.id}:v${asset.version}`, priority: -1 });
     return { type: asset.type, durationS: p.durationS, width: p.width, height: p.height };
   },
 

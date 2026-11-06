@@ -6,7 +6,9 @@ import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 import {
   assetTypeForMime,
+  carriedCredits,
   extForMime,
+  mergeCredits,
   normalizeMime,
   sniffMatches,
   storageKeys,
@@ -148,6 +150,25 @@ export interface NewAsset {
   skipProcessing?: boolean;
 }
 
+/**
+ * A file made from another keeps what it owes: the original's license when none is given, and its
+ * credit lines (plus the original license's credit when the new file has a license of its own).
+ */
+async function inheritFromParent(ctx: JobContext, input: NewAsset): Promise<{ licenseId: string | null; meta: Record<string, unknown> }> {
+  const own = input.meta ?? {};
+  if (!input.parentAssetId) return { licenseId: input.licenseId ?? null, meta: own };
+  const { data: parent } = await ctx.sb.from('assets').select('license_id, meta').eq('id', input.parentAssetId).maybeSingle();
+  if (!parent) return { licenseId: input.licenseId ?? null, meta: own };
+  const licenseId = input.licenseId === undefined ? parent.license_id : input.licenseId;
+  let fromLicense: string[] = [];
+  if (parent.license_id && parent.license_id !== licenseId) {
+    const { data: lic } = await ctx.sb.from('licenses').select('attribution').eq('id', parent.license_id).maybeSingle();
+    if (lic?.attribution) fromLicense = [lic.attribution];
+  }
+  const credits = mergeCredits(carriedCredits(own), carriedCredits(parent.meta), fromLicense);
+  return { licenseId, meta: credits.length ? { ...own, credits } : own };
+}
+
 /** Uploads a local file as a new library asset and queues its processing. */
 export async function createAssetFromFile(ctx: JobContext, input: NewAsset): Promise<AssetRow> {
   const mime = await detectMime(input.filePath, input.mime, input.name);
@@ -157,6 +178,7 @@ export async function createAssetFromFile(ctx: JobContext, input: NewAsset): Pro
   const driver = storage();
   const key = storageKeys.original(input.workspaceId, id, extForMime(mime));
   const size = (await stat(input.filePath)).size;
+  const { licenseId, meta } = await inheritFromParent(ctx, input);
   await driver.putFile(key, input.filePath, mime);
   const { data, error } = await ctx.sb
     .from('assets')
@@ -178,9 +200,9 @@ export async function createAssetFromFile(ctx: JobContext, input: NewAsset): Pro
       generation_id: input.generationId ?? null,
       is_ai_generated: input.isAiGenerated ?? false,
       parent_asset_id: input.parentAssetId ?? null,
-      license_id: input.licenseId ?? null,
+      license_id: licenseId,
       tags: input.tags ?? [],
-      meta: (input.meta ?? {}) as Json,
+      meta: meta as Json,
     })
     .select('*')
     .single();

@@ -72,6 +72,7 @@ function asset(seed: MediaSeed, n: number): AssetView {
   return {
     id: id('cccccccc', n),
     name: seed.name.charAt(0).toUpperCase() + seed.name.slice(1),
+    credits: [],
     type: seed.type,
     mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
     status: 'ready',
@@ -209,6 +210,8 @@ function post(n: number, dayOffset: number, hour: number, status: PostView['stat
     id: id('ffffffff', n),
     title: ['Spring drop teaser', 'Bottle restock', 'Customer review cut', 'Flash sale 24h', 'How it works', 'Comparison reel'][n % 6] ?? 'Post',
     caption: 'Cold for 24 hours. Built for every day.',
+    firstComment: null,
+    review: null,
     hashtags: ['#hydration', '#everydaycarry'],
     status,
     scheduledAt: when.toISOString(),
@@ -228,6 +231,7 @@ function post(n: number, dayOffset: number, hour: number, status: PostView['stat
       status: published ? 'published' : 'pending',
       externalUrl: null,
       error: null,
+      firstComment: null,
       attempts: published ? 1 : 0,
       publishedAt: published ? when.toISOString() : null,
       metrics,
@@ -320,3 +324,80 @@ export const sfx = {
 };
 
 export const templates = TIMELINE_TEMPLATES.map((t) => ({ id: t.id, name: t.name, category: t.category, description: t.description, durationS: t.durationS, aspect: null, builtin: true, updatedAt: null }));
+
+/** Free media search results, using the site's own sample images. */
+export function stock(kind: string | null, provider: string | null) {
+  const k = (kind ?? 'photo') as 'photo' | 'video' | 'music' | 'sound';
+  const providers = [
+    { id: 'pexels', label: 'Pexels', url: 'https://www.pexels.com', kinds: ['photo', 'video'], enabled: true },
+    { id: 'pixabay', label: 'Pixabay', url: 'https://pixabay.com', kinds: ['photo', 'video'], enabled: false },
+    { id: 'openverse', label: 'Openverse', url: 'https://openverse.org', kinds: ['photo', 'music', 'sound'], enabled: true },
+  ];
+  const active = provider ?? (k === 'photo' || k === 'video' ? 'pexels' : 'openverse');
+  const pics = ['before-after', 'listicle', 'problem-solution', 'unboxing', 'us-vs-them'].map((t) => `/templates/${t}.jpg`).concat(['kinetic', 'showcase', 'compare'].map((t) => `/landing/${t}.jpg`));
+  const creators = ['Ana Ruiz', 'Kenji Mori', 'Lea Brandt', 'Omar Haddad', 'Priya Nair', 'Sam Okafor', 'Tess Larsen', 'Yuki Sato'];
+  const visual = k === 'photo' || k === 'video';
+  const items = Array.from({ length: visual ? 8 : 6 }, (_, i) => {
+    const license = active === 'openverse' ? (i % 3 === 2 ? 'by' : i % 2 ? 'pdm' : 'cc0') : active;
+    const title = visual ? ['Morning coffee pour', 'Desk with laptop', 'City lights at night', 'Fresh skincare set', 'Runner at sunrise', 'Beach in summer', 'Product unboxing', 'Happy customer'][i]! : k === 'music' ? ['Bright Morning', 'Upbeat Days', 'Lo-fi Study', 'Cinematic Rise', 'Acoustic Walk', 'Neon Drive'][i]! : ['Whoosh fast', 'Soft click', 'Pop', 'Applause short', 'Notification ding', 'Camera shutter'][i]!;
+    const creator = creators[i % creators.length]!;
+    return {
+      provider: active,
+      id: String(1000 + i),
+      kind: k,
+      title,
+      creator,
+      creatorUrl: null,
+      pageUrl: `https://example.com/media/${1000 + i}`,
+      thumbUrl: visual ? pics[i % pics.length]! : null,
+      previewUrl: k === 'video' ? ['/landing/kinetic.mp4', '/landing/showcase.mp4', '/landing/compare.mp4'][i % 3]! : null,
+      width: visual ? 1080 : null,
+      height: visual ? 1350 : null,
+      durationS: k === 'photo' ? null : k === 'sound' ? 1 + i * 0.6 : k === 'video' ? 8 + i * 3 : 95 + i * 21,
+      license,
+      licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+      credit: license === 'by' ? `“${title}” by ${creator}, CC BY 4.0` : null,
+      source: active === 'openverse' ? (k === 'photo' ? 'wikimedia' : 'freesound') : null,
+    };
+  });
+  return { items, page: 1, hasMore: false, provider: active, providers };
+}
+
+/** A published link-in-bio page with a month of visits. */
+export const bioPage = {
+  id: '6b9d6c1e-2f4a-4c8e-9b1a-7d2e5f3a1c90',
+  slug: 'everydaybottle',
+  title: 'Everyday Bottle Co.',
+  bio: 'Bottles that keep drinks cold for 24 hours. Free shipping over $40.',
+  avatarAssetId: null,
+  avatarUrl: null,
+  theme: { mode: 'brand' as const, accent: '#0d9488', buttons: 'pill' as const },
+  published: true,
+  views: 4210,
+  links: [
+    { id: 'b1000000-0000-4000-8000-000000000001', label: 'Shop the spring sale', url: 'https://example.com/spring', enabled: true, clicks: 812 },
+    { id: 'b1000000-0000-4000-8000-000000000002', label: 'Watch the 24-hour ice test', url: 'https://example.com/ice-test', enabled: true, clicks: 341 },
+    { id: 'b1000000-0000-4000-8000-000000000003', label: 'Find a store near you', url: 'https://example.com/stores', enabled: true, clicks: 97 },
+    { id: 'b1000000-0000-4000-8000-000000000004', label: 'Wholesale', url: 'https://example.com/wholesale', enabled: false, clicks: 12 },
+  ],
+  createdAt: '2026-10-01T10:00:00.000Z',
+};
+
+export function bioStats() {
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const day = new Date(Date.parse(NOW_ISO) - (29 - i) * 86_400_000).toISOString().slice(0, 10);
+    const views = 90 + ((i * 37) % 70);
+    return { day, views, clicks: Math.round(views * (0.24 + ((i * 13) % 10) / 100)) };
+  });
+  return { days, linkClicks: { [bioPage.links[0]!.id]: 402, [bioPage.links[1]!.id]: 188, [bioPage.links[2]!.id]: 51 } };
+}
+
+export const team = {
+  canManage: true,
+  members: [
+    { userId: '9a0e1c34-1111-4aaa-8bbb-000000000001', name: 'Sam Owner', email: 'owner@example.com', avatarUrl: null, role: 'owner' as const, joinedAt: '2026-10-01T10:00:00.000Z', isYou: true },
+    { userId: '9a0e1c34-1111-4aaa-8bbb-000000000002', name: 'Ria Editor', email: 'ria@example.com', avatarUrl: null, role: 'editor' as const, joinedAt: '2026-10-20T10:00:00.000Z', isYou: false },
+    { userId: '9a0e1c34-1111-4aaa-8bbb-000000000003', name: null, email: 'client@example.com', avatarUrl: null, role: 'viewer' as const, joinedAt: '2026-11-02T10:00:00.000Z', isYou: false },
+  ],
+  invites: [{ id: '9a0e1c34-2222-4aaa-8bbb-000000000001', email: 'designer@example.com', role: 'editor' as const, expiresAt: '2026-11-12T10:00:00.000Z', createdAt: '2026-11-05T10:00:00.000Z' }],
+};

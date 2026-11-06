@@ -7,6 +7,7 @@ import {
   PLATFORM_SPECS,
   SIGNED_URL_TTL,
   SOCIAL_PLATFORMS,
+  storageKeys,
   validateForPlatform,
   type AssetRow,
   type PostRow,
@@ -20,7 +21,7 @@ import { PermanentError, userMessage } from '../lib/errors';
 import { downloadAsset, putDerived } from '../lib/files';
 import { assertLicensed } from '../lib/licensing';
 import { nowIso } from '../lib/util';
-import { toJpeg } from '../media/ffmpeg';
+import { probe, toJpeg, toPublishMp4 } from '../media/ffmpeg';
 import { reschedule, type JobContext, type JobHandler } from '../runner';
 
 /** Platforms whose publisher pushes the file bytes instead of letting the platform pull a URL. */
@@ -83,6 +84,15 @@ async function resolveAsset(ctx: JobContext, post: PostRow): Promise<AssetRow | 
   return asset;
 }
 
+/** H.264 or HEVC video with AAC sound (or none) in MP4 or MOV: what every platform takes as it is. */
+function publishReady(asset: AssetRow, meta: Record<string, unknown>): boolean {
+  if (!/^video\/(mp4|quicktime)$/.test(asset.mime_type)) return false;
+  const video = typeof meta.codec === 'string' ? meta.codec : null;
+  const audio = typeof meta.audioCodec === 'string' ? meta.audioCodec : null;
+  if (video && video !== 'h264' && video !== 'hevc') return false;
+  return meta.hasAudio === false || !audio || audio === 'aac';
+}
+
 async function buildContext(
   ctx: JobContext,
   input: { post: PostRow; target: PostTargetRow; account: SocialAccountRow; asset: AssetRow; platform: SocialPlatform; accessToken: string; withFile: boolean },
@@ -99,8 +109,28 @@ async function buildContext(
   let contentType = asset.mime_type;
   let filePath = '';
   let sizeBytes = asset.size_bytes ?? 0;
+  const pushesFile = input.withFile && PUSH_PLATFORMS.has(platform) && account.provider !== 'ayrshare';
+  if (isVideo && !publishReady(asset, meta)) {
+    // Converted once per version of the file and kept with its other derived files.
+    const name = `publish-v${asset.version}.mp4`;
+    const key = storageKeys.derived(asset.workspace_id, asset.id, name);
+    let head = await driver.head(key);
+    if (!head || pushesFile) {
+      const local = path.join(await ctx.tmp(), 'publish.mp4');
+      if (head) await driver.downloadToFile(key, local);
+      else {
+        const original = await downloadAsset(ctx, asset);
+        await toPublishMp4(original, local, await probe(original, ctx.signal), ctx.signal);
+        head = { size: (await putDerived(asset, name, local, 'video/mp4')).bytes };
+      }
+      if (pushesFile) filePath = local;
+    }
+    url = await driver.signedReadUrl(key, SIGNED_URL_TTL.publish);
+    contentType = 'video/mp4';
+    sizeBytes = head.size;
+  }
   const needsJpeg = input.withFile && !isVideo && platform === 'instagram' && account.provider !== 'ayrshare' && !/jpe?g/.test(asset.mime_type);
-  if ((input.withFile && PUSH_PLATFORMS.has(platform) && account.provider !== 'ayrshare') || needsJpeg) {
+  if ((pushesFile && !filePath) || needsJpeg) {
     filePath = await downloadAsset(ctx, asset);
     if (needsJpeg) {
       const jpg = path.join(await ctx.tmp(), 'publish.jpg');
@@ -151,6 +181,8 @@ export const publishPost: JobHandler<'publish.post'> = {
   async run(ctx, { postTargetId }) {
     const { target, post } = await loadTarget(ctx, postTargetId);
     if (target.status === 'published' || target.status === 'canceled') return { skipped: target.status };
+    // Waiting for an admin: approval queues publishing again.
+    if (post.status === 'pending_approval') return { skipped: post.status };
     if (post.status === 'canceled') {
       await ctx.sb.from('post_targets').update({ status: 'canceled' }).eq('id', target.id);
       return { skipped: 'canceled' };
@@ -218,6 +250,8 @@ export const publishPost: JobHandler<'publish.post'> = {
       await recordUsage(ctx.sb, { workspaceId: post.workspace_id, userId: ctx.job.created_by, kind: 'publish', provider: account.provider === 'ayrshare' ? 'ayrshare' : platform, units: 1, unit: 'post', costUsd: 0, jobId: ctx.job.id, meta: { platform, postId: post.id } });
       await activity(ctx.sb, { workspaceId: post.workspace_id, actorId: post.created_by, verb: 'post.published', objectType: 'post', objectId: post.id, data: { platform, url: outcome.externalUrl } });
       await ctx.enqueue('publish.metrics', { postTargetId: target.id }, { runAt: new Date(Date.now() + 3600_000), idempotencyKey: `publish.metrics:${target.id}:first` });
+      // The post is out; a problem queueing its first comment must not turn that into a failure.
+      await queueFirstComment(ctx, post, target.id, account, platform).catch((err) => console.warn(`first comment for ${target.id} not queued:`, (err as Error).message));
       return { platform, externalId: outcome.externalId, url: outcome.externalUrl };
     } catch (err) {
       if (err instanceof PlatformError && err.authExpired) await social.markSocialAccount(ctx.sb, account.id, 'expired', err.message);
@@ -231,6 +265,61 @@ export const publishPost: JobHandler<'publish.post'> = {
   async onCancel(ctx, { postTargetId }) {
     const { data } = await ctx.sb.from('post_targets').update({ status: 'canceled' }).eq('id', postTargetId).in('status', ['pending', 'publishing', 'processing']).select('post_id').maybeSingle();
     if (data) await syncPostStatus(ctx, data.post_id);
+  },
+};
+
+/* ------------------------------- First comment ------------------------------ */
+
+/** Seconds to wait after publishing. YouTube takes comments once the upload has been processed. */
+const COMMENT_DELAY_S: Partial<Record<SocialPlatform, number>> = { youtube: 240 };
+
+function canComment(account: SocialAccountRow, platform: SocialPlatform): boolean {
+  return account.provider !== 'ayrshare' && typeof social.PUBLISHERS[platform].comment === 'function';
+}
+
+async function queueFirstComment(ctx: JobContext, post: PostRow, targetId: string, account: SocialAccountRow, platform: SocialPlatform) {
+  if (!post.first_comment?.trim()) return;
+  if (!canComment(account, platform)) {
+    await ctx.sb.from('post_targets').update({ first_comment_status: 'unsupported', first_comment_error: null }).eq('id', targetId);
+    return;
+  }
+  await ctx.enqueue('publish.comment', { postTargetId: targetId }, { runAt: new Date(Date.now() + (COMMENT_DELAY_S[platform] ?? 10) * 1000), idempotencyKey: `publish.comment:${targetId}`, maxAttempts: 4 });
+}
+
+/** Posts the post's first comment under one published target. */
+export const publishComment: JobHandler<'publish.comment'> = {
+  async run(ctx, { postTargetId }) {
+    const { target, post } = await loadTarget(ctx, postTargetId);
+    const text = post.first_comment?.trim();
+    if (!text) return { skipped: 'no comment' };
+    if (target.first_comment_status === 'posted') return { skipped: 'posted' };
+    if (target.status !== 'published' || !target.external_id || !isPlatform(target.platform)) return { skipped: 'not published' };
+    const platform = target.platform;
+    const label = PLATFORM_SPECS[platform].label;
+    const { data: account } = await ctx.sb.from('social_accounts').select('*').eq('id', target.social_account_id).maybeSingle();
+    if (!account || account.status !== 'active') throw new PermanentError(`Reconnect the ${label} account to post the first comment.`);
+    if (!canComment(account, platform)) {
+      await ctx.sb.from('post_targets').update({ first_comment_status: 'unsupported', first_comment_error: null }).eq('id', target.id);
+      return { skipped: 'unsupported' };
+    }
+    ctx.progress(30, `Commenting on ${label}`);
+    try {
+      const accessToken = await social.socialAccessToken(ctx.sb, account);
+      const accountRef = { externalId: account.external_id, handle: account.handle, meta: isRecord(account.meta) ? account.meta : {} };
+      const res = await social.PUBLISHERS[platform].comment!({ accessToken, account: accountRef }, target.external_id, text);
+      await ctx.sb.from('post_targets').update({ first_comment_status: 'posted', first_comment_id: res.id, first_comment_error: null }).eq('id', target.id);
+      return { platform, commentId: res.id };
+    } catch (err) {
+      if (err instanceof PlatformError && err.authExpired) await social.markSocialAccount(ctx.sb, account.id, 'expired', err.message);
+      // Accounts connected before comments were added lack the permission until they reconnect.
+      if (err instanceof PlatformError && /permission|scope|not authori[sz]ed|insufficient/i.test(err.message)) {
+        throw new PermanentError(`${err.message} Reconnect the ${label} account in Settings → Accounts to allow comments.`);
+      }
+      throw err;
+    }
+  },
+  async onFailure(ctx, { postTargetId }, message) {
+    await ctx.sb.from('post_targets').update({ first_comment_status: 'failed', first_comment_error: message.slice(0, 1000) }).eq('id', postTargetId);
   },
 };
 

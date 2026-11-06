@@ -78,28 +78,40 @@ async function userEmail(sb: ServiceClient, userId: string): Promise<string | nu
   return email;
 }
 
-function assertAllowed(email: string | null) {
+/**
+ * With APP_OWNER_EMAILS set, listed people use the studio fully. Anyone else may only use
+ * workspaces they joined by invite, so a stranger who signs up cannot spend the owner's keys.
+ */
+function joinedOnly(email: string | null): boolean {
   const list = ownerEmails();
-  if (list.length && (!email || !list.includes(email.toLowerCase()))) {
-    throw new AppError('not_allowed', 'This account is not allowed to use this studio.', 403);
-  }
+  return list.length > 0 && (!email || !list.includes(email.toLowerCase()));
 }
 
-async function membership(sb: ServiceClient, userId: string, requested: string | null): Promise<{ workspaceId: string; role: Role }> {
+const NOT_ALLOWED = () => new AppError('not_allowed', 'This account is not allowed to use this studio. Ask the owner for an invite.', 403);
+
+async function joinedWorkspace(sb: ServiceClient, userId: string, workspaceId: string): Promise<boolean> {
+  const { data } = await sb.from('workspaces').select('owner_id').eq('id', workspaceId).maybeSingle();
+  return !!data && data.owner_id !== userId;
+}
+
+async function membership(sb: ServiceClient, userId: string, requested: string | null, onlyJoined: boolean): Promise<{ workspaceId: string; role: Role }> {
+  const usable = async (workspaceId: string) => !onlyJoined || (await joinedWorkspace(sb, userId, workspaceId));
   if (requested) {
     if (!z.string().uuid().safeParse(requested).success) throw badRequest('x-workspace-id must be a workspace id.');
     const { data } = await sb.from('workspace_members').select('role').eq('workspace_id', requested).eq('user_id', userId).maybeSingle();
     if (!data) throw forbidden('You are not a member of that workspace.');
+    if (!(await usable(requested))) throw NOT_ALLOWED();
     return { workspaceId: requested, role: data.role as Role };
   }
   const { data: profile } = await sb.from('profiles').select('default_workspace_id').eq('id', userId).maybeSingle();
   if (profile?.default_workspace_id) {
     const { data } = await sb.from('workspace_members').select('role').eq('workspace_id', profile.default_workspace_id).eq('user_id', userId).maybeSingle();
-    if (data) return { workspaceId: profile.default_workspace_id, role: data.role as Role };
+    if (data && (await usable(profile.default_workspace_id))) return { workspaceId: profile.default_workspace_id, role: data.role as Role };
   }
-  const { data: first } = await sb.from('workspace_members').select('workspace_id, role').eq('user_id', userId).order('created_at').limit(1).maybeSingle();
-  if (!first) throw forbidden('Your account has no workspace yet. Sign out and in again.');
-  return { workspaceId: first.workspace_id, role: first.role as Role };
+  const { data: rows } = await sb.from('workspace_members').select('workspace_id, role').eq('user_id', userId).order('created_at').limit(20);
+  for (const r of rows ?? []) if (await usable(r.workspace_id)) return { workspaceId: r.workspace_id, role: r.role as Role };
+  if (onlyJoined) throw NOT_ALLOWED();
+  throw forbidden('Your account has no workspace yet. Sign out and in again.');
 }
 
 async function apiKeyCaller(sb: ServiceClient, token: string, requested: string | null): Promise<Caller> {
@@ -110,7 +122,7 @@ async function apiKeyCaller(sb: ServiceClient, token: string, requested: string 
   const { data: member } = await sb.from('workspace_members').select('role').eq('workspace_id', key.workspace_id).eq('user_id', key.user_id).maybeSingle();
   if (!member) throw new AppError('unauthorized', 'The owner of this API key left the workspace.', 401);
   const email = await userEmail(sb, key.user_id);
-  assertAllowed(email);
+  if (joinedOnly(email) && !(await joinedWorkspace(sb, key.user_id, key.workspace_id))) throw NOT_ALLOWED();
   if (!key.last_used_at || Date.now() - new Date(key.last_used_at).getTime() > 5 * 60_000) {
     void sb.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', key.id).then(() => undefined);
   }
@@ -132,8 +144,7 @@ export async function resolveCaller(req: NextRequest, sb = serviceClient()): Pro
   const claims = data?.claims;
   if (!claims?.sub) throw new AppError('unauthorized', 'Sign in to continue.', 401);
   const email = (claims.email as string | undefined) ?? null;
-  assertAllowed(email);
-  const { workspaceId, role } = await membership(sb, claims.sub, requested);
+  const { workspaceId, role } = await membership(sb, claims.sub, requested, joinedOnly(email));
   return { userId: claims.sub, email, workspaceId, role, via: 'session', scopes: SCOPES, apiKeyId: null };
 }
 

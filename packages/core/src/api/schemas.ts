@@ -272,6 +272,8 @@ export const postCreateSchema = z.object({
   rightsAcknowledged: z.literal(true, { message: 'Confirm you have the rights to publish this content.' }),
   abGroup: z.string().max(60).nullish(),
   abVariant: z.enum(['A', 'B', 'C', 'D']).nullish(),
+  /** Posted as a comment right after the post goes live, where the network allows it. */
+  firstComment: z.string().trim().max(2200).nullish(),
   projectId: uuid.nullish(),
 });
 export type PostCreate = z.infer<typeof postCreateSchema>;

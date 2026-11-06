@@ -14,6 +14,7 @@ export * from './net';
 export * from './scrape';
 export * from './seed';
 export * from './lut';
+export * from './meta-signed-request';
 
 export * from './ai/keys';
 export * from './ai/verify';

@@ -7,10 +7,12 @@ import {
   Copy,
   FileText,
   FolderOpen,
+  Gift,
   Image,
   LayoutDashboard,
   LayoutTemplate,
   Layers,
+  Link2,
   Megaphone,
   Music,
   Radar,
@@ -35,6 +37,7 @@ export const NAV: { title: string; items: NavItem[] }[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Recent work, spend and what is running' },
       { href: '/library', label: 'Library', icon: FolderOpen, description: 'Every video, photo and sound' },
+      { href: '/free-media', label: 'Free media', icon: Gift, description: 'Free photos, videos, music and sounds for ads' },
     ],
   },
   {
@@ -70,6 +73,7 @@ export const NAV: { title: string; items: NavItem[] }[] = [
     title: 'Distribute',
     items: [
       { href: '/publish', label: 'Publish', icon: Send, description: 'Post and schedule to 7 platforms' },
+      { href: '/bio', label: 'Link in bio', icon: Link2, description: 'One public page for your links, with clicks counted' },
       { href: '/ads', label: 'Ads', icon: Megaphone, description: 'Launch Meta and TikTok ads' },
       { href: '/analytics', label: 'Analytics', icon: ChartColumn, description: 'Posts, ads and spend' },
     ],

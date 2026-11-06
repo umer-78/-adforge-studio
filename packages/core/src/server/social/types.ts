@@ -84,6 +84,8 @@ export interface Publisher {
   /** Continues a publish that returned `processing`. */
   check?(ctx: PublishContext, state: Record<string, unknown>): Promise<PublishOutcome>;
   metrics?(ctx: { accessToken: string; account: PublishContext['account'] }, externalId: string): Promise<MetricsSnapshot | null>;
+  /** Comments on the account's own post (the first comment). Networks without it leave this out. */
+  comment?(ctx: { accessToken: string; account: PublishContext['account'] }, externalId: string, text: string): Promise<{ id: string | null }>;
 }
 
 export const emptyMetrics = (raw: Record<string, unknown> = {}): MetricsSnapshot => ({

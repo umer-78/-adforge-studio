@@ -21,8 +21,10 @@ const GET: [RegExp, Handler][] = [
     return page(items);
   }],
   [/^\/api\/assets\/[^/]+$/, (u) => {
-    const asset = f.assets.find((a) => u.pathname.endsWith(a.id)) ?? f.assets[0];
-    return { asset, ...asset };
+    const asset = f.assets.find((a) => u.pathname.endsWith(a.id)) ?? f.assets[0]!;
+    // The detail shape of GET /api/assets/:id, with nothing analysed yet.
+    const meta = { codec: null, audioCodec: null, bitrate: null, hasAudio: asset.type === 'video' ? true : null, analysis: null, score: null, scenes: null, beats: null, bpm: null, loudnessLufs: null, silences: null, licenseIssues: null, sourceUrl: null, reframes: null };
+    return { ...asset, asset, transcript: null, transcriptLanguage: null, segments: null, meta, versions: [], license: null, generation: null, derived: [] };
   }],
   [/^\/api\/generations$/, (u) => {
     const caps = u.searchParams.getAll('capability').flatMap((c) => c.split(','));
@@ -47,6 +49,10 @@ const GET: [RegExp, Handler][] = [
   })],
   [/^\/api\/providers$/, () => f.providers],
   [/^\/api\/sfx$/, () => f.sfx],
+  [/^\/api\/stock$/, (u) => f.stock(u.searchParams.get('kind'), u.searchParams.get('provider'))],
+  [/^\/api\/bio$/, () => ({ items: [f.bioPage] })],
+  [/^\/api\/team$/, () => f.team],
+  [/^\/api\/bio\/[0-9a-f-]{36}$/, () => ({ page: f.bioPage, stats: f.bioStats() })],
   [/^\/api\/templates$/, () => ({ items: f.templates })],
   [/^\/api\/voices\/usage$/, () => ({ tier: 'creator', characterCount: 41_200, characterLimit: 100_000, resetsAt: new Date(Date.parse(f.NOW_ISO) + 12 * 86_400_000).toISOString() })],
   [/^\/api\/llm\/estimate$/, () => ({ usd: 0.004 })],

@@ -41,14 +41,15 @@ async function sharedFiles(rows: AssetRow[], allowDownload: boolean): Promise<Sh
 }
 
 /** Public view of a share link. Password-protected links take the password in a POST body. */
-async function resolve(sb: Parameters<Parameters<typeof publicRoute>[1]>[0]['sb'], token: string, password: string | undefined) {
+async function resolve(sb: Parameters<Parameters<typeof publicRoute>[1]>[0]['sb'], token: string, password: string | undefined, countView: boolean) {
   const { data: link } = await sb.from('share_links').select('*').eq('token', token).maybeSingle();
   if (!link || link.revoked_at || (link.expires_at && new Date(link.expires_at).getTime() < Date.now())) throw notFound('This link');
   if (link.password_hash) {
     if (!password) throw new AppError('password_required', 'This link is password protected.', 401);
     if (!(await verifyPassword(password, link.password_hash))) throw new AppError('wrong_password', 'That password is not right.', 401);
   }
-  await sb.from('share_links').update({ view_count: link.view_count + 1 }).eq('id', link.id);
+  // The page re-reads the link to renew expiring media URLs; that is not a new view.
+  if (countView) await sb.from('share_links').update({ view_count: link.view_count + 1 }).eq('id', link.id);
   const [{ data: ws }, rows] = await Promise.all([
     sb.from('workspaces').select('name').eq('id', link.workspace_id).maybeSingle(),
     link.asset_id
@@ -65,6 +66,8 @@ async function resolve(sb: Parameters<Parameters<typeof publicRoute>[1]>[0]['sb'
   };
 }
 
-export const GET = publicRoute({ limit: ['share-view', 120, 60] }, async ({ sb, params }) => resolve(sb, params.token!, undefined));
+const refresh = z.enum(['1']).optional();
 
-export const POST = publicRoute({ body: z.object({ password: z.string().max(128).optional() }), limit: ['share-unlock', 20, 300] }, async ({ sb, params, body }) => resolve(sb, params.token!, body.password));
+export const GET = publicRoute({ query: z.object({ refresh }), limit: ['share-view', 120, 60] }, async ({ sb, params, query }) => resolve(sb, params.token!, undefined, !query.refresh));
+
+export const POST = publicRoute({ body: z.object({ password: z.string().max(128).optional(), refresh: z.boolean().optional() }), limit: ['share-unlock', 20, 300] }, async ({ sb, params, body }) => resolve(sb, params.token!, body.password, !body.refresh));

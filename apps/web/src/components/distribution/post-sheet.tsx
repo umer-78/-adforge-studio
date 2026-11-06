@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, ExternalLink, RotateCcw, Send, Trash2, X } from 'lucide-react';
+import { CalendarClock, Check, ExternalLink, MessageSquare, RotateCcw, Send, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { VideoPlayer } from '@/components/app/media-player';
@@ -11,10 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Confirm } from '@/components/ui/confirm';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/misc';
+import { Notice, Skeleton } from '@/components/ui/misc';
+import { Textarea } from '@/components/ui/textarea';
+import { useMe } from '@/lib/hooks/use-me';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { api, errorMessage } from '@/lib/api-client';
-import type { PostMetricsView, PostView } from '@/lib/types';
+import type { PostMetricsView, PostTargetView, PostView } from '@/lib/types';
 import { formatNumber, formatPercent } from '@/lib/utils';
 
 export const fmtWhen = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
@@ -86,7 +88,11 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
-  const pending = p.status === 'draft' || p.status === 'scheduled';
+  const pending = p.status === 'draft' || p.status === 'scheduled' || p.status === 'pending_approval';
+  const me = useMe();
+  const role = me.data?.workspace.role;
+  const isAdmin = role === 'owner' || role === 'admin';
+  const needsApproval = me.data?.workspace.settings.requirePostApproval === true && !isAdmin;
   const a = p.asset;
   return (
     <div className="space-y-5">
@@ -117,6 +123,14 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
           {p.hashtags.length > 0 && <div className="mt-2 text-primary">{p.hashtags.map((h) => `#${h}`).join(' ')}</div>}
         </div>
       )}
+      {p.firstComment && (
+        <div className="rounded-xl border border-dashed p-3 text-sm whitespace-pre-line">
+          <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <MessageSquare className="size-3.5" /> First comment
+          </div>
+          {p.firstComment}
+        </div>
+      )}
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold">Accounts</h3>
@@ -128,6 +142,7 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
               <StatusPill status={t.status} />
             </div>
             {t.error && <p className="text-xs text-destructive">{t.error}</p>}
+            {p.firstComment && t.firstComment && <FirstCommentLine state={t.firstComment} />}
             {t.status === 'published' && <MetricsLine m={t.metrics} className="block text-xs text-muted-foreground" />}
             {t.externalUrl && (
               <a href={t.externalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
@@ -138,6 +153,12 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
         ))}
       </div>
 
+      {p.status === 'pending_approval' && <ReviewPanel post={p} isAdmin={isAdmin} onDone={sync} />}
+      {p.status === 'draft' && p.review?.note && (
+        <Notice tone="warning" title="Changes requested">
+          <span className="whitespace-pre-line">{p.review.note}</span>
+        </Notice>
+      )}
       {pending && (
         <div className="space-y-3 rounded-xl border p-3">
           <div className="flex flex-wrap items-end gap-2">
@@ -146,13 +167,18 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
               <Input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} min={toLocalInput(new Date().toISOString())} />
             </label>
             <Button size="sm" variant="outline" loading={patch.isPending && !!patch.variables?.scheduledAt} onClick={() => patch.mutate({ scheduledAt: new Date(at).toISOString() })}>
-              <CalendarClock className="size-4" /> {p.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
+              <CalendarClock className="size-4" /> {needsApproval ? 'Submit for this time' : p.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Confirm title="Publish now?" description="It goes out to every account on this post right away." confirmLabel="Publish now" onConfirm={() => patch.mutateAsync({ scheduledAt: null })}>
+            <Confirm
+              title={needsApproval ? 'Submit to go out now?' : 'Publish now?'}
+              description={needsApproval ? 'An admin approves it first; it goes out as soon as they do.' : 'It goes out to every account on this post right away.'}
+              confirmLabel={needsApproval ? 'Submit' : 'Publish now'}
+              onConfirm={() => patch.mutateAsync({ scheduledAt: null })}
+            >
               <Button size="sm">
-                <Send className="size-4" /> Publish now
+                <Send className="size-4" /> {needsApproval ? 'Submit to go out now' : 'Publish now'}
               </Button>
             </Confirm>
             <Confirm title="Cancel this post?" description="Nothing is published. You can still delete it afterwards." confirmLabel="Cancel post" destructive onConfirm={() => patch.mutateAsync({ status: 'canceled' })}>
@@ -180,3 +206,48 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
     </div>
   );
 }
+
+function FirstCommentLine({ state }: { state: NonNullable<PostTargetView['firstComment']> }) {
+  if (state.status === 'posted') return <p className="text-xs text-success">First comment posted.</p>;
+  if (state.status === 'unsupported') return <p className="text-xs text-muted-foreground">This network does not allow the first comment, so it was not posted.</p>;
+  return <p className="text-xs text-destructive">First comment not posted{state.error ? `: ${state.error}` : '.'}</p>;
+}
+
+/** Waiting for approval: admins approve or send it back with a note; others see that it is waiting. */
+function ReviewPanel({ post: p, isAdmin, onDone }: { post: PostView; isAdmin: boolean; onDone: (p: PostView) => void }) {
+  const [note, setNote] = useState('');
+  const review = useMutation({
+    mutationFn: (decision: 'approve' | 'reject') => api.post<PostView>(`/posts/${p.id}/review`, { decision, note: note.trim() || undefined }),
+    onSuccess: (next, decision) => {
+      toast.success(decision === 'approve' ? (next.status === 'scheduled' ? 'Approved. It goes out at the scheduled time.' : 'Approved. Publishing now.') : 'Sent back with your note.');
+      onDone(next);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const when = p.scheduledAt ? `at ${fmtWhen(p.scheduledAt)}` : 'as soon as it is approved';
+  if (!isAdmin) {
+    return (
+      <Notice tone="info" title="Waiting for approval">
+        An admin reviews this post before it goes out. It is set to go out {when}.
+      </Notice>
+    );
+  }
+  return (
+    <div className="space-y-3 rounded-xl border border-warning/40 p-3">
+      <div>
+        <h3 className="text-sm font-semibold">Needs your approval</h3>
+        <p className="text-xs text-muted-foreground">Approving sends it out {when}. To ask for changes, write what to fix.</p>
+      </div>
+      <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder="Note for the author (needed to ask for changes)" aria-label="Review note" />
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" loading={review.isPending && review.variables === 'approve'} disabled={review.isPending} onClick={() => review.mutate('approve')}>
+          <Check className="size-4" /> Approve
+        </Button>
+        <Button size="sm" variant="outline" loading={review.isPending && review.variables === 'reject'} disabled={review.isPending || !note.trim()} onClick={() => review.mutate('reject')}>
+          Ask for changes
+        </Button>
+      </div>
+    </div>
+  );
+}
+

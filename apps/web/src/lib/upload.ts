@@ -196,13 +196,19 @@ export async function uploadAndWait(file: File, opts: Omit<UploadOptions, 'onUpl
   await startUploads([file], { ...opts, onUploaded: (a) => (uploaded = a) });
   const first = uploaded as AssetView | null;
   if (!first) throw new Error('Upload failed. Check the upload tray for details.');
+  return waitUntilReady(first, timeoutMs);
+}
+
+/** Polls an asset until processing finishes; throws when it fails or takes too long. */
+export async function waitUntilReady(asset: AssetView, timeoutMs = 120_000, signal?: AbortSignal): Promise<AssetView> {
   const started = Date.now();
-  let current: AssetView = first;
+  let current = asset;
   while (current.status !== 'ready') {
     if (current.status === 'failed') throw new Error(current.processingError ?? 'Processing failed.');
     if (Date.now() - started > timeoutMs) throw new Error('Processing is taking longer than usual. Try again in a minute.');
+    if (signal?.aborted) throw new DOMException('Canceled', 'AbortError');
     await new Promise((r) => setTimeout(r, 1500));
-    current = (await api.get<{ asset: AssetView }>(`/assets/${first.id}`)).asset;
+    current = (await api.get<{ asset: AssetView }>(`/assets/${asset.id}`)).asset;
   }
   return current;
 }

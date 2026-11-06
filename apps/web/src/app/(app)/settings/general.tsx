@@ -6,11 +6,13 @@ import { toast } from 'sonner';
 import { formatUsd, parseWorkspaceSettings, type WorkspacePatch } from '@adforge/core';
 import { isAdmin, SettingsSection, SwitchRow } from '@/components/settings/shared';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Field, Notice, Progress, Skeleton } from '@/components/ui/misc';
 import { Select } from '@/components/ui/select';
 import { api, errorMessage } from '@/lib/api-client';
 import { useMe } from '@/lib/hooks/use-me';
+import { supabaseBrowser } from '@/lib/supabase/browser';
 import type { Me } from '@/lib/types';
 
 const RETENTION = [7, 14, 30, 60, 90, 180, 365];
@@ -23,6 +25,7 @@ export function GeneralSettings() {
     <div className="space-y-6">
       <ProfileSection me={me.data} />
       <WorkspaceSection me={me.data} />
+      <DeleteAccountSection />
     </div>
   );
 }
@@ -191,6 +194,78 @@ function WorkspaceSection({ me }: { me: Me }) {
           className="sm:max-w-56"
         />
       </Field>
+    </SettingsSection>
+  );
+}
+
+const CONFIRM_WORD = 'DELETE';
+
+/** Permanent account deletion, behind a typed confirmation. */
+function DeleteAccountSection() {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const remove = useMutation({
+    mutationFn: () => api.delete('/me', { confirm: CONFIRM_WORD }),
+    onSuccess: async () => {
+      // The account is gone; clear this browser's session cookies before leaving.
+      try {
+        await supabaseBrowser().auth.signOut({ scope: 'local' });
+      } catch {
+        // The session already stopped working with the account; the cookies expire on their own.
+      }
+      // A full page load, so no signed-in state cached in this tab survives the deletion.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign('/data-deletion?deleted=1');
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  return (
+    <SettingsSection title="Delete account" description="Permanently delete your account and every workspace you own.">
+      <p className="text-sm text-muted-foreground">
+        Everything in those workspaces is deleted: files, edits, scripts, brand kits, connected accounts, posts, ads, share links and history. People you invited lose access too. This can’t be undone.{' '}
+        <a href="/data-deletion" className="text-primary underline-offset-4 hover:underline">
+          What gets deleted
+        </a>
+      </p>
+      <div>
+        <Button variant="destructive" size="sm" onClick={() => setOpen(true)}>
+          Delete account
+        </Button>
+      </div>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (remove.isPending) return;
+          setOpen(v);
+          if (!v) setTyped('');
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>Your account, every workspace you own and everything in them are deleted for good. Download anything you want to keep first.</DialogDescription>
+          </DialogHeader>
+          <form
+            id="delete-account"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (typed === CONFIRM_WORD) remove.mutate();
+            }}
+          >
+            <Field label={`Type ${CONFIRM_WORD} to confirm`} htmlFor="delete-confirm">
+              <Input id="delete-confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+            </Field>
+          </form>
+          <DialogFooter>
+            <Button variant="ghost" disabled={remove.isPending} onClick={() => (setOpen(false), setTyped(''))}>
+              Cancel
+            </Button>
+            <Button type="submit" form="delete-account" variant="destructive" disabled={typed !== CONFIRM_WORD} loading={remove.isPending}>
+              Delete account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SettingsSection>
   );
 }

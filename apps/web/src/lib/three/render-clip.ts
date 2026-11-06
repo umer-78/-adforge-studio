@@ -57,10 +57,13 @@ function takeOver(get: () => RootState, size: ClipSize): () => void {
   };
 }
 
+/** What happened to the sound of a rendered clip. */
+export type ClipAudioResult = 'added' | 'silent' | 'unsupported';
+
 /** A sound track laid under a rendered clip. */
 export interface ClipAudio {
-  /** Adds the track to the output before encoding starts; false when it cannot be included. */
-  attach(output: Output, container: 'mp4' | 'webm'): Promise<boolean>;
+  /** Adds the track to the output before encoding starts: `silent` when there is no sound, `unsupported` when this browser cannot encode it. */
+  attach(output: Output, container: 'mp4' | 'webm'): Promise<ClipAudioResult>;
   /** Encodes everything that starts before `until` seconds. */
   feed(until: number): Promise<void>;
   close(): Promise<void>;
@@ -86,7 +89,7 @@ export async function renderCanvasClip({
   beforeFrame?: (t: number) => Promise<void>;
   audio?: ClipAudio;
   onProgress: (pct: number) => void;
-}): Promise<File> {
+}): Promise<{ file: File; audio: ClipAudioResult | null }> {
   const state = get();
   const codec = await getFirstEncodableVideoCodec(['avc', 'vp9', 'av1'], { width: size.width, height: size.height });
   if (!codec) throw new Error('This browser cannot encode video. Use a recent Chrome, Edge, Safari or Firefox.');
@@ -94,7 +97,8 @@ export async function renderCanvasClip({
   const output = new Output({ format: mp4 ? new Mp4OutputFormat({ fastStart: 'in-memory' }) : new WebMOutputFormat(), target: new BufferTarget() });
   const video = new CanvasSource(state.gl.domElement, { codec, quality: QUALITY_HIGH });
   output.addVideoTrack(video, { frameRate: fps });
-  const withAudio = audio ? await audio.attach(output, mp4 ? 'mp4' : 'webm').catch(() => false) : false;
+  const audioResult = audio ? await audio.attach(output, mp4 ? 'mp4' : 'webm').catch((): ClipAudioResult => 'unsupported') : null;
+  const withAudio = audioResult === 'added';
 
   const restore = takeOver(get, size);
   state.clock.elapsedTime = 0;
@@ -121,7 +125,7 @@ export async function renderCanvasClip({
   const buffer = (output.target as BufferTarget).buffer;
   if (!buffer) throw new Error('The clip came out empty.');
   const type = mp4 ? 'video/mp4' : 'video/webm';
-  return new File([buffer], `${name}.${mp4 ? 'mp4' : 'webm'}`, { type });
+  return { file: new File([buffer], `${name}.${mp4 ? 'mp4' : 'webm'}`, { type }), audio: audioResult };
 }
 
 /**
@@ -187,8 +191,6 @@ export async function openVideoFrames(url: string, maxWidth = 1280): Promise<Vid
   if (!(await track.canDecode())) throw new Error('This browser cannot decode this video. Try Chrome or Edge.');
   const duration = await track.computeDuration();
   const sink = new CanvasSink(track, { width: Math.min(maxWidth, track.displayWidth), poolSize: 3 });
-  const texture = new THREE.CanvasTexture<HTMLCanvasElement | OffscreenCanvas>(document.createElement('canvas'));
-  texture.colorSpace = THREE.SRGBColorSpace;
 
   let frames: AsyncGenerator<WrappedCanvas, void, unknown> | null = null;
   let current: WrappedCanvas | null = null;
@@ -201,6 +203,15 @@ export async function openVideoFrames(url: string, maxWidth = 1280): Promise<Vid
     next = (await frames.next()).value ?? null;
   };
   await rewind();
+  const first = current as WrappedCanvas | null;
+  if (!first) {
+    input.dispose();
+    throw new Error('This video has no frames to show.');
+  }
+  // Built from a real frame: three.js sizes a texture on its first upload and later frames must match,
+  // or they upload nothing and the screen renders black.
+  const texture = new THREE.CanvasTexture<HTMLCanvasElement | OffscreenCanvas>(first.canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
 
   return {
     texture,
@@ -214,7 +225,9 @@ export async function openVideoFrames(url: string, maxWidth = 1280): Promise<Vid
         next = (await frames!.next()).value ?? null;
       }
       if (current) {
-        texture.image = current.canvas;
+        const { canvas } = current;
+        if (texture.image.width !== canvas.width || texture.image.height !== canvas.height) texture.dispose();
+        texture.image = canvas;
         texture.needsUpdate = true;
       }
     },
@@ -240,15 +253,18 @@ export function videoAudio(url: string, lengthS: number): ClipAudio {
     async attach(output, container) {
       input = new Input({ source: new UrlSource(url), formats: ALL_FORMATS });
       const track = await input.getPrimaryAudioTrack();
-      if (!track || !(await track.canDecode())) return false;
-      const codec = await getFirstEncodableAudioCodec([container === 'mp4' ? 'aac' : 'opus'], { numberOfChannels: track.numberOfChannels, sampleRate: track.sampleRate });
+      if (!track) return 'silent';
+      if (!(await track.canDecode())) return 'unsupported';
+      // AAC first, since every platform takes it; Opus in MP4 where the browser has no AAC encoder (publishing converts it).
+      const codec = await getFirstEncodableAudioCodec(container === 'mp4' ? ['aac', 'opus'] : ['opus'], { numberOfChannels: track.numberOfChannels, sampleRate: track.sampleRate });
       duration = await track.computeDuration();
-      if (!codec || !(duration > 0)) return false;
+      if (!(duration > 0)) return 'silent';
+      if (!codec) return 'unsupported';
       target = new AudioSampleSource({ codec, quality: QUALITY_HIGH });
       output.addAudioTrack(target);
       sink = new AudioSampleSink(track);
       samples = sink.samples(0, duration);
-      return true;
+      return 'added';
     },
     async feed(until) {
       while (!done && sink && samples && target) {

@@ -119,6 +119,14 @@ export const linkedinPublisher: Publisher = {
     await sleep(500);
     return createPost(ctx.accessToken, String(state.author), ctx.caption, video, ctx.title);
   },
+  async comment({ accessToken, account }, urn, text) {
+    const actor = String(account.meta.authorUrn ?? `urn:li:person:${account.externalId}`);
+    const res = await api<{ id?: string; $URN?: string } | null>('linkedin', `${REST}/socialActions/${encodeURIComponent(urn)}/comments`, {
+      headers: headers(accessToken),
+      json: { actor, object: urn, message: { text: text.slice(0, 1250) } },
+    });
+    return { id: res.data?.$URN ?? res.data?.id ?? res.headers.get('x-restli-id') ?? null };
+  },
   async metrics({ accessToken }, urn) {
     try {
       const { data } = await api<{ likesSummary?: { totalLikes?: number }; commentsSummary?: { aggregatedTotalComments?: number; totalFirstLevelComments?: number } }>(

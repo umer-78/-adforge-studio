@@ -193,6 +193,24 @@ export async function thumbnail(input: string, out: string, opts: { at?: number;
   );
 }
 
+/**
+ * An MP4 every platform takes: H.264 video (HEVC and H.264 are copied as they are) with AAC sound.
+ * Clips made in a browser can be WebM, VP9, AV1 or Opus, which Instagram, TikTok and others refuse.
+ */
+export async function toPublishMp4(input: string, out: string, p: ProbeResult, signal?: AbortSignal) {
+  const copy = p.videoCodec === 'h264' || p.videoCodec === 'hevc';
+  await ffmpeg(
+    [
+      '-i', input,
+      '-map', '0:v:0', ...(p.hasAudio ? ['-map', '0:a:0'] : []),
+      ...(copy ? ['-c:v', 'copy', ...(p.videoCodec === 'hevc' ? ['-tag:v', 'hvc1'] : [])] : ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-profile:v', 'high', '-pix_fmt', 'yuv420p']),
+      ...(p.hasAudio ? ['-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2'] : ['-an']),
+      '-movflags', '+faststart', out,
+    ],
+    { signal, timeoutMs: Math.max(10 * 60_000, (p.durationS ?? 0) * 4000) },
+  );
+}
+
 /** Converts any still image to a JPEG (Instagram, ad platforms and LLM inputs prefer it). */
 export async function toJpeg(input: string, out: string, maxSize = 4096, signal?: AbortSignal) {
   await ffmpeg(['-i', input, '-frames:v', '1', '-vf', `scale='min(${maxSize},iw)':'min(${maxSize},ih)':force_original_aspect_ratio=decrease,format=yuvj444p`, '-q:v', '2', out], { signal, timeoutMs: 120_000 });
@@ -342,3 +360,47 @@ export async function extractSpeechAudio(input: string, out: string, signal?: Ab
 }
 
 export const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/**
+ * Decodes the picture as small packed RGB frames and hands each one over as it arrives, so long
+ * videos never sit in memory. Used by the flash check.
+ */
+export function streamFrames(input: string, opts: { width: number; height: number; fps: number; maxS?: number; signal?: AbortSignal; onFrame: (rgb: Uint8Array) => void }): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (opts.signal?.aborted) return reject(opts.signal.reason ?? new JobAborted('canceled'));
+    const size = opts.width * opts.height * 3;
+    const args = ['-hide_banner', '-v', 'error', ...(opts.maxS ? ['-t', String(opts.maxS)] : []), '-i', input, '-map', '0:v:0', '-an', '-vf', `fps=${opts.fps},scale=${opts.width}:${opts.height}:flags=area,format=rgb24`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'];
+    const child = spawn(env().FFMPEG_PATH, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let pending: Buffer = Buffer.alloc(0);
+    let err = '';
+    let failed: Error | null = null;
+    const abort = () => child.kill('SIGKILL');
+    opts.signal?.addEventListener('abort', abort, { once: true });
+    child.stdout.on('data', (chunk: Buffer) => {
+      if (failed) return;
+      pending = pending.length ? Buffer.concat([pending, chunk]) : chunk;
+      let off = 0;
+      try {
+        while (pending.length - off >= size) {
+          opts.onFrame(pending.subarray(off, off + size));
+          off += size;
+        }
+      } catch (e) {
+        failed = e as Error;
+        child.kill('SIGKILL');
+      }
+      pending = pending.subarray(off);
+    });
+    child.stderr.on('data', (c: Buffer) => {
+      if (err.length < 4000) err += c.toString();
+    });
+    child.on('error', (e) => reject(new Error(`ffmpeg could not start: ${e.message}. Install FFmpeg or set FFMPEG_PATH.`)));
+    child.on('close', (code) => {
+      opts.signal?.removeEventListener('abort', abort);
+      if (opts.signal?.aborted) return reject(opts.signal.reason ?? new JobAborted('canceled'));
+      if (failed) return reject(failed);
+      if (code !== 0) return reject(new Error(`ffmpeg could not read the video: ${err.trim().slice(-400) || `exit ${code}`}`));
+      resolve();
+    });
+  });
+}

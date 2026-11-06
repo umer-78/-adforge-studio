@@ -5,11 +5,14 @@ import { CircleAlert, FlaskConical, Plus, Send, Sparkles, TriangleAlert, X } fro
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { PLATFORM_SPECS } from '@adforge/core';
+import { creditsCaption, mergeCredits, missingCredits, PLATFORM_SPECS } from '@adforge/core';
 import { AssetSlot } from '@/components/app/asset-picker';
 import { PlatformIcon, PLATFORM_META } from '@/components/app/platform-icon';
 import { ChipList } from '@/components/growth/shared';
 import { LlmPrice } from '@/components/scripts/llm-price';
+import { FeedPreviewButton } from '@/components/preview/feed-preview';
+import { AdChecksPanel } from './ad-checks-panel';
+import { BestTimes } from './best-times';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import { useDebounced } from '@/lib/hooks/use-debounced';
 import { useMe } from '@/lib/hooks/use-me';
+import { useNow } from '@/lib/hooks/use-now';
 import type { AssetView, PlatformCheckView, PostView, SocialAccountView, SocialPlatformId } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { toLocalInput } from './post-sheet';
@@ -57,20 +61,27 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState<string[]>([]);
+  const [firstComment, setFirstComment] = useState('');
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [options, setOptions] = useState<Record<string, Options>>({});
   const [when, setWhen] = useState<'now' | 'later'>('now');
   const [at, setAt] = useState(toLocalInput(null));
   const [aiLabel, setAiLabel] = useState<boolean | null>(null);
   const [rights, setRights] = useState(false);
+  // Free media that asks for a credit: remind until every credit line is in the caption.
+  const credits = mergeCredits(...variants.map((v) => v.asset?.credits ?? []));
+  const missingCredit = missingCredits(credits, [caption, ...variants.map((v) => v.caption ?? '')].join('\n'));
 
   // Prefill from ?asset= / ?assets= (variants of an A/B test).
   const preload = useQueries({ queries: initialAssetIds.slice(0, 4).map((id) => ({ queryKey: ['asset', id, 'view'], queryFn: () => api.get<{ asset: AssetView }>(`/assets/${id}`).then((r) => r.asset), staleTime: 60_000 })) });
   const preloaded = preload.every((q) => q.isSuccess) ? preload.map((q) => q.data!) : null;
-  useEffect(() => {
-    if (preloaded?.length) setVariants(preloaded.map((a) => ({ asset: a, caption: null })));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preloaded?.map((a) => a.id).join(',')]);
+  const preloadKey = preloaded?.map((a) => a.id).join(',') ?? '';
+  const [loadedKey, setLoadedKey] = useState('');
+  if (preloaded?.length && preloadKey !== loadedKey) {
+    setLoadedKey(preloadKey);
+    setVariants(preloaded.map((a) => ({ asset: a, caption: null })));
+  }
+  const now = useNow();
 
   const accounts = useMemo(() => (social.data?.accounts ?? []).filter((a) => a.status === 'active'), [social.data]);
   const selected = accounts.filter((a) => accountIds.includes(a.id));
@@ -78,6 +89,8 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const abMode = variants.length > 1;
   const anyAi = variants.some((v) => v.asset?.isAiGenerated);
   const label = aiLabel ?? (anyAi || !!me.data?.workspace.aiLabelDefault);
+  const role = me.data?.workspace.role;
+  const needsApproval = me.data?.workspace.settings.requirePostApproval === true && role !== 'owner' && role !== 'admin';
   const needsTitle = platforms.some((p) => PLATFORM_SPECS[p].requiresTitle);
 
   const targets = selected.map((a) => ({ socialAccountId: a.id, captionOverride: overrides[a.id]?.trim() ? overrides[a.id] : null }));
@@ -111,7 +124,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
     ...(variants.some((v) => !v.asset) ? [abMode ? 'Pick media for every variant.' : 'Pick a video or photo.'] : []),
     ...(!selected.length ? ['Pick at least one account.'] : []),
     ...(needsTitle && !title.trim() ? ['Add a title (YouTube and Pinterest need one).'] : []),
-    ...(when === 'later' && (!at || new Date(at).getTime() < Date.now() + 60_000) ? ['Pick a time at least a minute from now.'] : []),
+    ...(when === 'later' && (!at || new Date(at).getTime() < now + 60_000) ? ['Pick a time at least a minute from now.'] : []),
     ...optionProblems,
     ...(!rights ? ['Confirm you have the rights to publish this.'] : []),
   ];
@@ -146,9 +159,11 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
             assetId: v.asset!.id,
             title: title.trim() || null,
             caption: v.caption ?? caption,
+            firstComment: firstComment.trim() || null,
             hashtags,
             targets: selected.map((a) => {
-              const { commercial: _, ...o } = options[a.id] ?? {};
+              const o = { ...(options[a.id] ?? {}) };
+              delete o.commercial;
               return { socialAccountId: a.id, captionOverride: overrides[a.id]?.trim() ? overrides[a.id] : null, options: o };
             }),
             scheduledAt,
@@ -163,11 +178,13 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
     },
     onSuccess: (posts) => {
       qc.invalidateQueries({ queryKey: ['posts'] });
-      toast.success(when === 'later' ? `Scheduled ${posts.length > 1 ? `${posts.length} variants` : 'the post'}` : `Publishing ${posts.length > 1 ? `${posts.length} variants` : 'now'}…`);
+      if (needsApproval) toast.success(`Sent for approval. An admin reviews ${posts.length > 1 ? 'the variants' : 'it'} before ${when === 'later' ? 'the scheduled time' : 'it goes out'}.`);
+      else toast.success(when === 'later' ? `Scheduled ${posts.length > 1 ? `${posts.length} variants` : 'the post'}` : `Publishing ${posts.length > 1 ? `${posts.length} variants` : 'now'}…`);
       setVariants([{ asset: null, caption: null }]);
       setAbGroup(null);
       setTitle('');
       setCaption('');
+      setFirstComment('');
       setHashtags([]);
       setOverrides({});
       setRights(false);
@@ -202,7 +219,20 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
                     </button>
                   </div>
                 )}
-                <AssetSlot label={abMode ? 'Video or photo' : 'Video or photo'} types={['video', 'image']} value={v.asset} onChange={(a) => setVariants((all) => all.map((x, j) => (j === i ? { ...x, asset: a } : x)))} required />
+                <AssetSlot label="Video or photo" types={['video', 'image']} value={v.asset} onChange={(a) => setVariants((all) => all.map((x, j) => (j === i ? { ...x, asset: a } : x)))} required />
+                {v.asset && (
+                  <FeedPreviewButton
+                    asset={v.asset}
+                    size="xs"
+                    label="Preview in feed"
+                    defaults={{
+                      caption: [v.caption ?? caption, hashtags.map((h) => `#${h}`).join(' ')].filter((x) => x.trim()).join(' '),
+                      handle: selected[0]?.handle ?? selected[0]?.displayName ?? null,
+                      avatarUrl: selected[0]?.avatarUrl ?? null,
+                      platform: selected[0]?.platform ?? null,
+                    }}
+                  />
+                )}
                 {abMode && (
                   <Textarea
                     rows={2}
@@ -266,9 +296,28 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
           <Field label="Caption" aside={<span className={cn('tabular-nums', caption.length > captionLimit && 'text-destructive')}>{caption.length}/{captionLimit}</span>}>
             <Textarea rows={5} value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={5000} />
           </Field>
+          {missingCredit.length > 0 && (
+            <Notice
+              tone="warning"
+              title={missingCredit.length === 1 ? 'This media asks for a credit' : `This media asks for ${missingCredit.length} credits`}
+              action={
+                <Button size="xs" variant="outline" onClick={() => setCaption((c) => `${c.trimEnd()}${c.trim() ? '\n\n' : ''}${creditsCaption(missingCredit)}`.slice(0, 5000))}>
+                  Add to caption
+                </Button>
+              }
+            >
+              Its license allows free use when the creator is credited where people see the post:
+              <ul className="mt-1 list-disc pl-4 text-xs">
+                {missingCredit.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
           <Field label="Hashtags" hint="Without the #. Each platform's limit is checked below.">
             <ChipList items={hashtags} onChange={(h) => setHashtags(h.map((x) => x.replace(/^#/, '').replace(/\s+/g, '')))} max={30} maxLength={80} placeholder="skincare" />
           </Field>
+          <FirstCommentField value={firstComment} onChange={setFirstComment} accounts={selected} />
         </section>
 
         {selected.length > 0 && (
@@ -286,6 +335,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
             <Segmented value={when} onChange={setWhen} options={[{ value: 'now', label: 'Publish now' }, { value: 'later', label: 'Schedule' }]} />
           </Field>
           {when === 'later' && <Input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} min={toLocalInput(new Date().toISOString())} aria-label="Publish at" />}
+          {when === 'later' && <BestTimes platforms={[...new Set(selected.map((a) => a.platform))]} value={at} onPick={setAt} />}
           <label className="flex items-start justify-between gap-3 text-sm">
             <span>
               Label as AI-generated
@@ -318,6 +368,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
         </section>
 
         <Checks results={checks.data ?? []} loading={checks.isFetching} error={checks.error} letters={abMode} />
+        <AdChecksPanel text={[title, caption, ...variants.map((v) => v.caption ?? ''), ...Object.values(overrides), hashtags.map((h) => `#${h}`).join(' ')].join('\n')} assets={variants.map((v) => v.asset)} />
 
         {missing.length > 0 && (
           <ul className="space-y-1 text-xs text-muted-foreground">
@@ -329,9 +380,10 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
           </ul>
         )}
         <Button variant="brand" size="lg" className="w-full" loading={publish.isPending} disabled={missing.length > 0 || blocking.length > 0 || checks.isFetching} onClick={() => publish.mutate()}>
-          <Send className="size-4" /> {when === 'later' ? 'Schedule' : 'Publish'}
+          <Send className="size-4" /> {needsApproval ? 'Submit for approval' : when === 'later' ? 'Schedule' : 'Publish'}
           {abMode ? ` ${variants.length} variants` : ''}
         </Button>
+        {needsApproval && <p className="text-center text-xs text-muted-foreground">This workspace reviews posts. An admin approves it before it goes out.</p>}
       </aside>
     </div>
   );
@@ -490,5 +542,27 @@ function AccountPanel({ account: a, options: o, onOptions, override, onOverride,
         </button>
       )}
     </div>
+  );
+}
+
+/** Networks whose API lets the app comment on its own post. */
+const COMMENT_PLATFORMS = new Set<SocialPlatformId>(['instagram', 'facebook', 'youtube', 'linkedin', 'x']);
+
+function FirstCommentField({ value, onChange, accounts }: { value: string; onChange: (v: string) => void; accounts: SocialAccountView[] }) {
+  const skipped = accounts.filter((a) => a.provider === 'ayrshare' || !COMMENT_PLATFORMS.has(a.platform));
+  const names = [...new Set(skipped.map((a) => (a.provider === 'ayrshare' ? `${PLATFORM_META[a.platform]?.label ?? a.platform} through Ayrshare` : (PLATFORM_META[a.platform]?.label ?? a.platform))))];
+  return (
+    <Field
+      label="First comment"
+      htmlFor="first-comment"
+      hint={
+        value.trim() && names.length
+          ? `Posted right after publishing. Not posted on ${names.join(', ')}, which do not allow it.`
+          : 'Optional. Posted right after publishing on Instagram, Facebook, YouTube, LinkedIn and X; good for links, hashtags or credits.'
+      }
+      aside={<span className="tabular-nums">{value.length}/2200</span>}
+    >
+      <Textarea id="first-comment" rows={2} value={value} onChange={(e) => onChange(e.target.value)} maxLength={2200} placeholder="Shop the look: example.com/spring" />
+    </Field>
   );
 }

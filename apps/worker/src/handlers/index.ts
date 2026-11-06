@@ -6,12 +6,15 @@ import { audioProcess } from './audio';
 import { adClone, inspirationAnalyze } from './clone';
 import { competitorsSync } from './competitors';
 import { aiFinalize, aiGenerate, aiPoll } from './generate';
+import { mediaCheck } from './checks';
 import { mediaDetect, mediaProcess } from './media';
 import { productImport } from './product';
-import { publishMetrics, publishPost } from './publish';
+import { publishComment, publishMetrics, publishPost } from './publish';
 import { mediaReframe } from './reframe';
 import { renderTimeline } from './render';
 import { scriptWrite } from './script';
+import { stockImport } from './stock';
+import { storagePurge } from './storage';
 import { trashPurge } from './trash';
 import { variantsPlan, variantsRender } from './variants';
 
@@ -21,6 +24,7 @@ export const HANDLERS: HandlerMap = {
   'media.analyze': mediaAnalyze,
   'media.score': mediaScore,
   'media.detect': mediaDetect,
+  'media.check': mediaCheck,
   'media.reframe': mediaReframe,
   'audio.process': audioProcess,
   'ai.generate': aiGenerate,
@@ -29,7 +33,9 @@ export const HANDLERS: HandlerMap = {
   'render.timeline': renderTimeline,
   'publish.post': publishPost,
   'publish.metrics': publishMetrics,
+  'publish.comment': publishComment,
   'product.import': productImport,
+  'stock.import': stockImport,
   'script.write': scriptWrite,
   'ad.clone': adClone,
   'inspiration.analyze': inspirationAnalyze,
@@ -41,4 +47,5 @@ export const HANDLERS: HandlerMap = {
   'ads.sync': adsSync,
   'agent.step': agentStep,
   'trash.purge': trashPurge,
+  'storage.purge': storagePurge,
 };

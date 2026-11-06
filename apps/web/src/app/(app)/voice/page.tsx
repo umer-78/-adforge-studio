@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { PageContainer } from '@/components/app/page';
+import { PronunciationsButton } from '@/components/voice/pronunciations';
 import { PageHeader, Skeleton } from '@/components/ui/misc';
 import { VoiceView } from './view';
 
@@ -12,6 +13,7 @@ export default function VoicePage() {
         eyebrow="Create"
         title="Voice-over"
         description="Natural voice-overs and multi-voice dialogue in 30+ languages. Change a voice, clean up a recording, clone a voice with consent, or dub a whole ad."
+        actions={<PronunciationsButton />}
       />
       <Suspense fallback={<Skeleton className="h-[70vh] rounded-2xl" />}>
         <VoiceView />

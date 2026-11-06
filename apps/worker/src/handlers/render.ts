@@ -6,6 +6,8 @@ import {
   extForMime,
   findLicenseIssues,
   parseTimeline,
+  mergeCredits,
+  carriedCredits,
   presetSize,
   roleFromAudioTrackKind,
   timelineOps,
@@ -157,6 +159,8 @@ export const renderTimeline: JobHandler<'render.timeline'> = {
       if (role) roles.set(a.id, role);
     }
     const issues = await licenseIssues(ctx, tl, rows, roles);
+    // Credits owed by any file in the edit travel with the exported video.
+    const credits = mergeCredits(...[...rows.values()].map((a) => carriedCredits(a.meta)));
 
     const server = await serveDirectory(dir);
     try {
@@ -248,7 +252,7 @@ export const renderTimeline: JobHandler<'render.timeline'> = {
         createdBy: render.created_by,
         projectId: row.project_id,
         isAiGenerated: usesAi,
-        meta: { render: { renderId: render.id, timelineId: row.id, version: render.timeline_version ?? row.version, preset: preset.id }, aiLabelBurnedIn: tl.aiLabel, licenseIssues: issues },
+        meta: { render: { renderId: render.id, timelineId: row.id, version: render.timeline_version ?? row.version, preset: preset.id }, aiLabelBurnedIn: tl.aiLabel, licenseIssues: issues, ...(credits.length ? { credits } : {}) },
       });
       await ctx.sb.from('renders').update({ status: 'succeeded', progress: 100, output_asset_id: asset.id, error: null }).eq('id', render.id);
       if (!row.thumbnail_asset_id) await ctx.sb.from('timelines').update({ thumbnail_asset_id: asset.id }).eq('id', row.id);

@@ -1,29 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-/** Routes inside the signed-in app. Everything else (landing, legal, shares, auth) is public. */
-const APP_PREFIXES = [
-  '/dashboard',
-  '/library',
-  '/generate',
-  '/prompts',
-  '/scripts',
-  '/voice',
-  '/music',
-  '/photo',
-  '/motion',
-  '/editor',
-  '/templates',
-  '/products',
-  '/clone',
-  '/variants',
-  '/inspiration',
-  '/ads',
-  '/publish',
-  '/agent',
-  '/analytics',
-  '/settings',
-];
+import { APP_PREFIXES } from '@/lib/site';
 
 const isAppPath = (p: string) => APP_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 
@@ -67,11 +44,14 @@ export async function proxy(request: NextRequest) {
     return res;
   };
 
+  // People not on APP_OWNER_EMAILS get in when they joined someone's workspace by invite.
+  const permitted = async () => !!claims && (allowed(claims.email as string | undefined) || (await supabase.rpc('has_joined_workspace')).data === true);
+
   if (isAppPath(path)) {
     if (!claims) return redirect('/login', { next: path + request.nextUrl.search });
-    if (!allowed(claims.email as string | undefined)) return redirect('/login', { error: 'not_allowed' });
+    if (!(await permitted())) return redirect('/login', { error: 'not_allowed' });
   }
-  if (path === '/login' && claims && allowed(claims.email as string | undefined) && !request.nextUrl.searchParams.has('error')) {
+  if (path === '/login' && claims && !request.nextUrl.searchParams.has('error') && (await permitted())) {
     const next = request.nextUrl.searchParams.get('next');
     return redirect(next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard');
   }

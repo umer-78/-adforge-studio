@@ -4,8 +4,9 @@ import { layerRect, TimelineComposition } from '@adforge/compositions';
 import { Player, type PlayerRef } from '@remotion/player';
 import { Maximize, Pause, Play, Repeat, ScanLine, SkipBack, SkipForward, StepBack, StepForward, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { timelineOps, transformAt, type AnimatableProp, type AssetMap, type Clip, type TimelineData, type Track } from '@adforge/core';
+import { SAFE_ZONES_BY_ID, safeZonesFor, textPlacementsAt, timelineOps, transformAt, type AnimatableProp, type AssetMap, type Clip, type FrameRect, type SafeZone, type SafeZoneId, type TimelineData, type Track } from '@adforge/core';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tip } from '@/components/ui/tooltip';
 import { toResolvedAsset } from '@/lib/resolved-asset';
 import { cn } from '@/lib/utils';
@@ -83,12 +84,14 @@ export function Preview() {
   const ref = useRef<PlayerRef>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
-  const [safe, setSafe] = useState(false);
+  const [zoneChoice, setZoneChoice] = useState<ZoneChoice>('off');
 
   const resolved = useMemo<AssetMap>(() => Object.fromEntries(Object.values(assets).map((a) => [a.id, toResolvedAsset(a)])), [assets]);
   const options = useMemo(() => ({ showPlaceholders: true, soloTrackIds: solo }), [solo]);
   const inputProps = useMemo(() => ({ timeline: tl, assets: resolved, options }), [tl, resolved, options]);
   const duration = timelineOps.timelineDuration(tl);
+  const zones = useMemo(() => safeZonesFor(tl.width, tl.height), [tl.width, tl.height]);
+  const zone = resolveZone(zoneChoice, zones);
 
   useEffect(() => {
     const el = stage.current;
@@ -154,34 +157,70 @@ export function Preview() {
               errorFallback={({ error }) => <div className="flex h-full items-center justify-center p-6 text-center text-sm text-red-300">Preview error: {error.message}</div>}
             />
             <Overlay k={k} />
-            {safe && <SafeZones aspect={tl.width / tl.height} />}
+            {zone && <SafeZoneOverlay zone={zone} />}
           </div>
         )}
       </div>
-      <Transport duration={duration} fps={tl.fps} safe={safe} onSafe={setSafe} />
+      <Transport duration={duration} fps={tl.fps} zones={zones} active={zone} choice={zoneChoice === 'off' || zoneChoice === 'margin' ? zoneChoice : (zone?.id ?? 'off')} onZone={setZoneChoice} />
     </div>
   );
 }
 
-function SafeZones({ aspect }: { aspect: number }) {
-  const vertical = aspect < 0.8;
-  const zone = 'absolute bg-red-500/15 outline outline-1 outline-dashed outline-red-400/60 text-[10px] font-medium text-red-100/90 p-1';
+type ZoneChoice = 'off' | 'margin' | SafeZoneId;
+
+/** A plain title-safe margin for frame shapes that no platform template covers. */
+const MARGIN_ZONE: SafeZone = { ...SAFE_ZONES_BY_ID.feed, label: '5% title-safe margin', short: 'the edges', aspects: [] };
+
+/** The zone to draw; a platform picked for another frame shape falls back to one that fits this one. */
+function resolveZone(choice: ZoneChoice, zones: SafeZone[]): SafeZone | null {
+  if (choice === 'off') return null;
+  if (choice === 'margin') return MARGIN_ZONE;
+  return zones.find((z) => z.id === choice) ?? zones[0] ?? MARGIN_ZONE;
+}
+
+const frameBox = (r: FrameRect) => ({ left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.w * 100}%`, height: `${r.h * 100}%` });
+
+/** Where each text layer on screen at the playhead lands against the zone. */
+function useTextPlacements(zone: SafeZone) {
+  const tl = useEditor((s) => s.timeline);
+  const frame = usePlayhead((s) => s.frame);
+  return useMemo(() => textPlacementsAt(tl, zone, frame), [tl, zone, frame]);
+}
+
+/** What the platform's app covers, its recommended text area, and where each text layer lands right now. */
+function SafeZoneOverlay({ zone }: { zone: SafeZone }) {
+  const placements = useTextPlacements(zone);
   return (
-    <div className="pointer-events-none absolute inset-0">
-      {vertical ? (
-        <>
-          <div className={zone} style={{ left: 0, right: 0, top: 0, height: '9%' }}>Status bar & tabs</div>
-          <div className={zone} style={{ right: 0, top: '42%', width: '14%', height: '38%' }}>Buttons</div>
-          <div className={zone} style={{ left: 0, right: 0, bottom: 0, height: '20%' }}>Caption, name & CTA</div>
-        </>
-      ) : (
-        <div className="absolute inset-[5%] outline outline-1 outline-dashed outline-red-400/60" />
-      )}
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {zone.covered.map((c) => (
+        <div key={c.label} className="absolute flex items-end bg-red-500/25 p-1 text-[10px] leading-tight font-medium text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.7)]" style={frameBox(c.rect)}>
+          {c.label}
+        </div>
+      ))}
+      <div className="absolute rounded-sm outline-1 outline-sky-300/90 outline-dashed" style={frameBox(zone.safe)} />
+      {placements.map((p) => (
+        <div key={p.clipId} className={cn('absolute rounded-[2px] outline-2', p.coveredBy ? 'bg-red-500/10 outline-red-400' : p.outside ? 'outline-amber-300 outline-dashed' : 'outline-emerald-400/90')} style={frameBox(p.rect)} />
+      ))}
     </div>
   );
 }
 
-function Transport({ duration, fps, safe, onSafe }: { duration: number; fps: number; safe: boolean; onSafe: (v: boolean) => void }) {
+/** The zone's name and how many text layers on screen are covered or outside its text area. */
+function SafeZoneStatus({ zone }: { zone: SafeZone }) {
+  const placements = useTextPlacements(zone);
+  const covered = placements.filter((p) => p.coveredBy).length;
+  const edge = placements.filter((p) => !p.coveredBy && p.outside).length;
+  return (
+    <div className="mr-1 hidden min-w-0 items-center gap-2 text-xs lg:flex">
+      <span className="truncate text-muted-foreground">{zone.label}</span>
+      {covered > 0 && <span className="shrink-0 text-red-400">{covered} covered</span>}
+      {edge > 0 && <span className="shrink-0 text-amber-400">{edge} near the edge</span>}
+      {placements.length > 0 && !covered && !edge && <span className="shrink-0 text-emerald-400">Text is clear</span>}
+    </div>
+  );
+}
+
+function Transport({ duration, fps, zones, active, choice, onZone }: { duration: number; fps: number; zones: SafeZone[]; active: SafeZone | null; choice: ZoneChoice; onZone: (v: ZoneChoice) => void }) {
   const frame = usePlayhead((s) => s.frame);
   const playing = usePlayhead((s) => s.playing);
   const loop = usePlayhead((s) => s.loop);
@@ -217,12 +256,35 @@ function Transport({ duration, fps, safe, onSafe }: { duration: number; fps: num
         <span>{timecode(frame, fps)}</span>
         <span className="text-muted-foreground"> / {timecode(duration, fps)}</span>
       </div>
-      <div className="ml-auto flex items-center">
-        <Tip content="Platform safe zones">
-          <Button size="icon-sm" variant="ghost" className={cn(safe && 'bg-accent text-primary')} onClick={() => onSafe(!safe)} aria-label="Toggle safe zones" aria-pressed={safe}>
-            <ScanLine />
-          </Button>
-        </Tip>
+      <div className="ml-auto flex min-w-0 items-center">
+        {active && <SafeZoneStatus zone={active} />}
+        <DropdownMenu>
+          <Tip content="Platform safe zones">
+            <DropdownMenuTrigger asChild>
+              <Button size="icon-sm" variant="ghost" className={cn(active && 'bg-accent text-primary')} aria-label="Safe zones">
+                <ScanLine />
+              </Button>
+            </DropdownMenuTrigger>
+          </Tip>
+          <DropdownMenuContent className="w-64">
+            <DropdownMenuLabel>Show what the app covers</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={choice} onValueChange={(v) => onZone(v as ZoneChoice)}>
+              <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
+              {zones.map((z) => (
+                <DropdownMenuRadioItem key={z.id} value={z.id}>
+                  {z.label}
+                </DropdownMenuRadioItem>
+              ))}
+              <DropdownMenuRadioItem value="margin">5% title-safe margin</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            {zones.length === 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">No platform uses this frame shape for full-screen ads. Use 9:16, 4:5, 1:1 or 16:9 for platform guides.</p>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Tip content="Loop">
           <Button size="icon-sm" variant="ghost" className={cn(loop && 'bg-accent text-primary')} onClick={() => player.setLoop(!loop)} aria-label="Loop" aria-pressed={loop}>
             <Repeat />

@@ -1,13 +1,15 @@
 'use client';
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Search, Upload } from 'lucide-react';
+import { Check, FolderOpen, Gift, Search, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { AssetType } from '@adforge/core';
+import type { AssetType, StockKind } from '@adforge/core';
+import { StockBrowser } from '@/components/stock/stock-browser';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { EmptyState, Skeleton } from '@/components/ui/misc';
+import { Segmented } from '@/components/ui/segmented';
 import { api } from '@/lib/api-client';
 import type { AssetView, Page } from '@/lib/types';
 import { startUploads } from '@/lib/upload';
@@ -15,6 +17,7 @@ import { cn, qs } from '@/lib/utils';
 import { AssetThumb } from './asset-card';
 
 const ACCEPT: Record<AssetType, string> = { video: 'video/*', image: 'image/*', audio: 'audio/*', model3d: '.glb,.gltf' };
+const STOCK_FOR: Record<AssetType, StockKind[]> = { image: ['photo'], video: ['video'], audio: ['music', 'sound'], model3d: [] };
 
 /** Pick one or more files from the library, or upload new ones in place. */
 export function AssetPicker({
@@ -42,11 +45,18 @@ export function AssetPicker({
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
   const [selected, setSelected] = useState<AssetView[]>(initial);
+  const [source, setSource] = useState<'library' | 'free'>('library');
   const fileRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (open) setSelected(initial);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const stockKinds = types.flatMap((t) => STOCK_FOR[t]);
+  // Start fresh each time the picker opens.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setSelected(initial);
+      setSource('library');
+    }
+  }
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 250);
     return () => clearTimeout(t);
@@ -69,6 +79,16 @@ export function AssetPicker({
     }
     setSelected((s) => (s.some((x) => x.id === a.id) ? s.filter((x) => x.id !== a.id) : s.length >= max ? s : [...s, a]));
   };
+  /** A free file arrives imported and ready: use it straight away, or add it to the selection. */
+  const pickFree = (a: AssetView) => {
+    if (!multiple) {
+      onPick([a]);
+      onOpenChange(false);
+      return;
+    }
+    setSelected((s) => (s.some((x) => x.id === a.id) || s.length >= max ? s : [...s, a]));
+    setSource('library');
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent wide className="max-h-[85vh]">
@@ -76,6 +96,23 @@ export function AssetPicker({
           <DialogTitle>{title ?? `Choose ${types.length === 1 ? (types[0] === 'model3d' ? 'a 3D model' : `${types[0] === 'image' ? 'an' : 'a'} ${types[0]}`) : 'files'}`}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {stockKinds.length > 0 && (
+          <Segmented
+            className="self-start"
+            value={source}
+            onChange={setSource}
+            options={[
+              { value: 'library', label: (<><FolderOpen /> Your files</>) },
+              { value: 'free', label: (<><Gift /> Free media</>) },
+            ]}
+          />
+        )}
+        {source === 'free' ? (
+          <div className="-mx-1 min-h-64 overflow-y-auto px-1 scrollbar-thin">
+            <StockBrowser kinds={stockKinds} onPicked={pickFree} pickLabel={multiple ? 'Add' : 'Use'} />
+          </div>
+        ) : (
+          <>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -132,6 +169,8 @@ export function AssetPicker({
             </div>
           )}
         </div>
+          </>
+        )}
         {multiple && (
           <DialogFooter>
             <div className="mr-auto self-center text-xs text-muted-foreground">

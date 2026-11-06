@@ -80,7 +80,7 @@ export const LICENSE_KIND_LABELS: Record<LicenseKind, string> = {
 export const MUSIC_MOODS = ['Upbeat', 'Energetic', 'Chill', 'Inspiring', 'Emotional', 'Playful', 'Luxurious', 'Confident', 'Dreamy', 'Dark', 'Epic', 'Romantic'] as const;
 export const MUSIC_GENRES = ['Pop', 'Hip-hop', 'Lo-fi', 'Electronic', 'House', 'Cinematic', 'Acoustic', 'Rock', 'R&B', 'Funk', 'Corporate', 'Afrobeats', 'Latin', 'Jazz', 'Ambient', 'Trap'] as const;
 
-export const SFX_CATEGORIES = ['transition', 'impact', 'riser', 'ui', 'notification', 'glitch', 'foley', 'ambience', 'generated'] as const;
+export const SFX_CATEGORIES = ['transition', 'impact', 'riser', 'ui', 'notification', 'glitch', 'foley', 'ambience', 'free', 'generated'] as const;
 export type SfxCategory = (typeof SFX_CATEGORIES)[number];
 
 export const CONSENT_KINDS = ['voice_clone', 'face_likeness', 'lipsync_dub'] as const;

@@ -1,4 +1,4 @@
-import { assetPatchSchema, isRecord, type Update } from '@adforge/core';
+import { adChecksOf, assetPatchSchema, isRecord, type Update } from '@adforge/core';
 import * as z from 'zod';
 import { badRequest, check, owned, route } from '@/lib/server/api';
 import { purgeAsset } from '@/lib/server/asset-ops';
@@ -35,6 +35,7 @@ export const GET = route({}, async ({ sb, caller, params }) => {
       licenseIssues: meta.licenseIssues ?? null,
       sourceUrl: meta.sourceUrl ?? null,
       reframes: meta.reframes ?? null,
+      checks: adChecksOf(meta),
     },
     versions: versions.data ?? [],
     license: license.data,
