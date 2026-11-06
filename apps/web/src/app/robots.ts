@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         allow: '/',
         // The studio needs a sign-in, share links are private, and the API is not for crawlers.
-        disallow: ['/api/', '/auth/', '/s/', '/login', '/reset-password', ...APP_PREFIXES],
+        disallow: ['/api/', '/auth/', '/s/', '/invite/', '/login', '/reset-password', ...APP_PREFIXES],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

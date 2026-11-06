@@ -1,12 +1,13 @@
 'use client';
 
-import { Coins, KeyRound, Megaphone, Palette, Share2, ShieldCheck, SlidersHorizontal, Terminal } from 'lucide-react';
+import { Coins, KeyRound, Megaphone, Palette, Share2, ShieldCheck, SlidersHorizontal, Terminal, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const SECTIONS = [
   { href: '/settings', label: 'General', icon: SlidersHorizontal },
+  { href: '/settings/team', label: 'Team', icon: Users },
   { href: '/settings/providers', label: 'AI providers', icon: KeyRound },
   { href: '/settings/accounts', label: 'Social accounts', icon: Share2 },
   { href: '/settings/ad-accounts', label: 'Ad accounts', icon: Megaphone },

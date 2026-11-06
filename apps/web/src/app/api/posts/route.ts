@@ -3,9 +3,9 @@ import { enqueueJob } from '@adforge/core/server';
 import * as z from 'zod';
 import { badRequest, check, logActivity, owned, route } from '@/lib/server/api';
 import { publishableAsset, toPostViews } from '@/lib/server/distribution';
-import { cleanHashtags, platformChecks, targetAccounts } from '@/lib/server/posts';
+import { cleanHashtags, needsApproval, platformChecks, targetAccounts } from '@/lib/server/posts';
 
-const STATUSES = ['draft', 'scheduled', 'publishing', 'published', 'partially_published', 'failed', 'canceled'] as const;
+const STATUSES = ['draft', 'pending_approval', 'scheduled', 'publishing', 'published', 'partially_published', 'failed', 'canceled'] as const;
 
 const query = z.object({
   status: z.enum(STATUSES).optional(),
@@ -48,6 +48,7 @@ export const POST = route({ body: postCreateSchema, scope: 'publish', limit: ['p
   if (when && when.getTime() < Date.now() - 60_000) throw badRequest('Pick a time in the future, or publish now.');
   if (when && when.getTime() > Date.now() + 366 * 86_400_000) throw badRequest('Schedule at most a year ahead.');
   const scheduled = !!when && when.getTime() > Date.now() + 30_000;
+  const approval = await needsApproval(sb, caller);
 
   const post = check(
     await sb
@@ -60,7 +61,8 @@ export const POST = route({ body: postCreateSchema, scope: 'publish', limit: ['p
         caption: body.caption,
         first_comment: body.firstComment?.trim() || null,
         hashtags,
-        status: scheduled ? 'scheduled' : 'publishing',
+        status: approval ? 'pending_approval' : scheduled ? 'scheduled' : 'publishing',
+        submitted_by: approval ? caller.userId : null,
         scheduled_at: scheduled ? when.toISOString() : null,
         ab_group: body.abGroup ?? null,
         ab_variant: body.abVariant ?? null,
@@ -90,12 +92,12 @@ export const POST = route({ body: postCreateSchema, scope: 'publish', limit: ['p
     await sb.from('posts').delete().eq('id', post.id);
     check(targets, 'Could not create the post');
   }
-  if (!scheduled) {
+  if (!scheduled && !approval) {
     for (const t of targets.data ?? []) {
       const job = await enqueueJob(sb, { type: 'publish.post', payload: { postTargetId: t.id }, workspaceId: caller.workspaceId, createdBy: caller.userId, priority: 10, idempotencyKey: `publish.post:${t.id}:now` });
       await sb.from('post_targets').update({ job_id: job.id }).eq('id', t.id);
     }
   }
-  await logActivity(sb, caller, scheduled ? 'post.scheduled' : 'post.publish', 'post', post.id, { platforms: [...new Set([...accounts.values()].map((a) => a.platform))], scheduledAt: post.scheduled_at });
+  await logActivity(sb, caller, approval ? 'post.submitted' : scheduled ? 'post.scheduled' : 'post.publish', 'post', post.id, { platforms: [...new Set([...accounts.values()].map((a) => a.platform))], scheduledAt: post.scheduled_at });
   return (await toPostViews(sb, caller.workspaceId, [post]))[0];
 });

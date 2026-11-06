@@ -53,6 +53,7 @@ export function PublishView() {
 
 const FILTERS = [
   { value: 'all', label: 'All' },
+  { value: 'pending_approval', label: 'Needs approval' },
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'publishing', label: 'Publishing' },
   { value: 'published', label: 'Published' },

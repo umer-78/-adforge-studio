@@ -11,6 +11,8 @@ export const workspaceSettingsSchema = z.looseObject({
   trashRetentionDays: z.number().int().min(1).max(365).default(30),
   /** How voice-overs say brand names and other tricky words. */
   pronunciations: pronunciationsSchema.default([]),
+  /** Posts by editors wait for an admin or the owner to approve them before they go out. */
+  requirePostApproval: z.boolean().default(false),
 });
 export type WorkspaceSettings = z.infer<typeof workspaceSettingsSchema>;
 
@@ -30,6 +32,7 @@ export const workspacePatchSchema = z.object({
       autoTranscribe: z.boolean().optional(),
       trashRetentionDays: z.number().int().min(1).max(365).optional(),
       pronunciations: pronunciationsSchema.optional(),
+      requirePostApproval: z.boolean().optional(),
     })
     .optional(),
 });

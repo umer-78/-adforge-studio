@@ -50,6 +50,7 @@ const TONE: Record<string, 'default' | 'secondary' | 'outline' | 'success' | 'wa
   running: 'default',
   waiting: 'default',
   awaiting_approval: 'warning',
+  pending_approval: 'warning',
   skipped: 'outline',
   importing: 'default',
   analyzing: 'default',

@@ -89,6 +89,8 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const abMode = variants.length > 1;
   const anyAi = variants.some((v) => v.asset?.isAiGenerated);
   const label = aiLabel ?? (anyAi || !!me.data?.workspace.aiLabelDefault);
+  const role = me.data?.workspace.role;
+  const needsApproval = me.data?.workspace.settings.requirePostApproval === true && role !== 'owner' && role !== 'admin';
   const needsTitle = platforms.some((p) => PLATFORM_SPECS[p].requiresTitle);
 
   const targets = selected.map((a) => ({ socialAccountId: a.id, captionOverride: overrides[a.id]?.trim() ? overrides[a.id] : null }));
@@ -176,7 +178,8 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
     },
     onSuccess: (posts) => {
       qc.invalidateQueries({ queryKey: ['posts'] });
-      toast.success(when === 'later' ? `Scheduled ${posts.length > 1 ? `${posts.length} variants` : 'the post'}` : `Publishing ${posts.length > 1 ? `${posts.length} variants` : 'now'}…`);
+      if (needsApproval) toast.success(`Sent for approval. An admin reviews ${posts.length > 1 ? 'the variants' : 'it'} before ${when === 'later' ? 'the scheduled time' : 'it goes out'}.`);
+      else toast.success(when === 'later' ? `Scheduled ${posts.length > 1 ? `${posts.length} variants` : 'the post'}` : `Publishing ${posts.length > 1 ? `${posts.length} variants` : 'now'}…`);
       setVariants([{ asset: null, caption: null }]);
       setAbGroup(null);
       setTitle('');
@@ -377,9 +380,10 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
           </ul>
         )}
         <Button variant="brand" size="lg" className="w-full" loading={publish.isPending} disabled={missing.length > 0 || blocking.length > 0 || checks.isFetching} onClick={() => publish.mutate()}>
-          <Send className="size-4" /> {when === 'later' ? 'Schedule' : 'Publish'}
+          <Send className="size-4" /> {needsApproval ? 'Submit for approval' : when === 'later' ? 'Schedule' : 'Publish'}
           {abMode ? ` ${variants.length} variants` : ''}
         </Button>
+        {needsApproval && <p className="text-center text-xs text-muted-foreground">This workspace reviews posts. An admin approves it before it goes out.</p>}
       </aside>
     </div>
   );

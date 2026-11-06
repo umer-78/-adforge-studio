@@ -211,6 +211,7 @@ function post(n: number, dayOffset: number, hour: number, status: PostView['stat
     title: ['Spring drop teaser', 'Bottle restock', 'Customer review cut', 'Flash sale 24h', 'How it works', 'Comparison reel'][n % 6] ?? 'Post',
     caption: 'Cold for 24 hours. Built for every day.',
     firstComment: null,
+    review: null,
     hashtags: ['#hydration', '#everydaycarry'],
     status,
     scheduledAt: when.toISOString(),
@@ -390,3 +391,13 @@ export function bioStats() {
   });
   return { days, linkClicks: { [bioPage.links[0]!.id]: 402, [bioPage.links[1]!.id]: 188, [bioPage.links[2]!.id]: 51 } };
 }
+
+export const team = {
+  canManage: true,
+  members: [
+    { userId: '9a0e1c34-1111-4aaa-8bbb-000000000001', name: 'Sam Owner', email: 'owner@example.com', avatarUrl: null, role: 'owner' as const, joinedAt: '2026-10-01T10:00:00.000Z', isYou: true },
+    { userId: '9a0e1c34-1111-4aaa-8bbb-000000000002', name: 'Ria Editor', email: 'ria@example.com', avatarUrl: null, role: 'editor' as const, joinedAt: '2026-10-20T10:00:00.000Z', isYou: false },
+    { userId: '9a0e1c34-1111-4aaa-8bbb-000000000003', name: null, email: 'client@example.com', avatarUrl: null, role: 'viewer' as const, joinedAt: '2026-11-02T10:00:00.000Z', isYou: false },
+  ],
+  invites: [{ id: '9a0e1c34-2222-4aaa-8bbb-000000000001', email: 'designer@example.com', role: 'editor' as const, expiresAt: '2026-11-12T10:00:00.000Z', createdAt: '2026-11-05T10:00:00.000Z' }],
+};

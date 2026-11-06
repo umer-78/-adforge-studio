@@ -2215,9 +2215,13 @@ export type Database = {
           project_id: string | null
           published_at: string | null
           render_id: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           rights_acknowledged: boolean
           scheduled_at: string | null
           status: string
+          submitted_by: string | null
           title: string | null
           updated_at: string
           workspace_id: string
@@ -2236,9 +2240,13 @@ export type Database = {
           project_id?: string | null
           published_at?: string | null
           render_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rights_acknowledged?: boolean
           scheduled_at?: string | null
           status?: string
+          submitted_by?: string | null
           title?: string | null
           updated_at?: string
           workspace_id: string
@@ -2257,9 +2265,13 @@ export type Database = {
           project_id?: string | null
           published_at?: string | null
           render_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rights_acknowledged?: boolean
           scheduled_at?: string | null
           status?: string
+          submitted_by?: string | null
           title?: string | null
           updated_at?: string
           workspace_id?: string
@@ -3479,6 +3491,56 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          revoked_at: string | null
+          role: string
+          token_hash: string
+          workspace_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          role: string
+          token_hash: string
+          workspace_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          role?: string
+          token_hash?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string
@@ -3564,6 +3626,7 @@ export type Database = {
         }[]
       }
       bio_track: { Args: { p_link?: string; p_page: string }; Returns: undefined }
+      has_joined_workspace: { Args: never; Returns: boolean }
       claim_jobs: {
         Args: {
           p_lease_seconds?: number

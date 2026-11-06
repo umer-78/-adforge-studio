@@ -181,6 +181,8 @@ export const publishPost: JobHandler<'publish.post'> = {
   async run(ctx, { postTargetId }) {
     const { target, post } = await loadTarget(ctx, postTargetId);
     if (target.status === 'published' || target.status === 'canceled') return { skipped: target.status };
+    // Waiting for an admin: approval queues publishing again.
+    if (post.status === 'pending_approval') return { skipped: post.status };
     if (post.status === 'canceled') {
       await ctx.sb.from('post_targets').update({ status: 'canceled' }).eq('id', target.id);
       return { skipped: 'canceled' };

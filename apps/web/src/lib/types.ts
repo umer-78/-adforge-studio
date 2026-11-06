@@ -667,8 +667,10 @@ export interface PostView {
   caption: string;
   /** Posted as a comment under each published copy, where the network allows it. */
   firstComment: string | null;
+  /** Approval trail when the workspace reviews posts: who sent it, when it was reviewed, and any note. */
+  review: { submittedBy: string | null; reviewedAt: string | null; note: string | null } | null;
   hashtags: string[];
-  status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'partially_published' | 'failed' | 'canceled';
+  status: 'draft' | 'pending_approval' | 'scheduled' | 'publishing' | 'published' | 'partially_published' | 'failed' | 'canceled';
   scheduledAt: string | null;
   publishedAt: string | null;
   abGroup: string | null;
@@ -966,4 +968,24 @@ export interface BioPageView {
 export interface BioStats {
   days: { day: string; views: number; clicks: number }[];
   linkClicks: Record<string, number>;
+}
+
+/* ---------------------------------- Team ---------------------------------- */
+
+export interface TeamMemberView {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+  role: 'owner' | 'admin' | 'editor' | 'viewer';
+  joinedAt: string;
+  isYou: boolean;
+}
+
+export interface InviteView {
+  id: string;
+  email: string;
+  role: 'admin' | 'editor' | 'viewer';
+  expiresAt: string;
+  createdAt: string;
 }

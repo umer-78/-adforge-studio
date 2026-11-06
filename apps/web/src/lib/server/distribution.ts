@@ -135,6 +135,7 @@ export async function toPostViews(sb: ServiceClient, workspaceId: string, rows: 
       title: r.title,
       caption: r.caption,
       firstComment: r.first_comment,
+      review: r.submitted_by || r.reviewed_at ? { submittedBy: r.submitted_by, reviewedAt: r.reviewed_at, note: r.review_note } : null,
       hashtags: r.hashtags,
       status: r.status as PostView['status'],
       scheduledAt: r.scheduled_at,
