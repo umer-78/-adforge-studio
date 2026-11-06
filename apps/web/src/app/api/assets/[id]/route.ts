@@ -2,17 +2,18 @@ import { adChecksOf, assetPatchSchema, isRecord, type Update } from '@adforge/co
 import * as z from 'zod';
 import { badRequest, check, owned, route } from '@/lib/server/api';
 import { purgeAsset } from '@/lib/server/asset-ops';
-import { toAssetView } from '@/lib/server/assets';
+import { sizeFamily, toAssetView } from '@/lib/server/assets';
 import { assertInWorkspace } from '@/lib/server/uploads';
 
 export const GET = route({}, async ({ sb, caller, params }) => {
   const asset = await owned(sb, 'assets', params.id!, caller, 'This file');
-  const [view, versions, license, generation, children] = await Promise.all([
+  const [view, versions, license, generation, children, sizes] = await Promise.all([
     toAssetView(asset, { original: true }),
     sb.from('asset_versions').select('id, version, note, size_bytes, created_at').eq('asset_id', asset.id).order('version', { ascending: false }).limit(20),
     asset.license_id ? sb.from('licenses').select('*').eq('id', asset.license_id).maybeSingle() : Promise.resolve({ data: null }),
     asset.generation_id ? sb.from('generations').select('id, capability, model, provider, prompt, params, cost_actual_usd, cost_estimate_usd, created_at').eq('id', asset.generation_id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('assets').select('id, name, type, created_at').eq('parent_asset_id', asset.id).is('deleted_at', null).order('created_at', { ascending: false }).limit(20),
+    sizeFamily(sb, asset),
   ]);
   const meta = isRecord(asset.meta) ? asset.meta : {};
   return {
@@ -34,13 +35,14 @@ export const GET = route({}, async ({ sb, caller, params }) => {
       silences: meta.silences ?? null,
       licenseIssues: meta.licenseIssues ?? null,
       sourceUrl: meta.sourceUrl ?? null,
-      reframes: meta.reframes ?? null,
+      reframes: Object.fromEntries(Object.entries(sizes).flatMap(([a, slot]) => (slot && !slot.original ? [[a, slot.id]] : []))),
       checks: adChecksOf(meta),
     },
     versions: versions.data ?? [],
     license: license.data,
     generation: generation.data,
     derived: children.data ?? [],
+    sizes,
   };
 });
 

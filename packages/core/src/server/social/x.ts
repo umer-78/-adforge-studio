@@ -1,6 +1,6 @@
 import { env } from '../env';
 import { api, basicAuth, num, PlatformError, readChunk, tokenSet } from './http';
-import { emptyMetrics, type Connector, type Publisher } from './types';
+import { emptyMetrics, type Connector, type Publisher, type PublishMedia } from './types';
 
 const API = 'https://api.x.com/2';
 const SCOPES = ['tweet.read', 'tweet.write', 'users.read', 'media.write', 'offline.access'];
@@ -57,40 +57,52 @@ export const xConnector: Connector = {
 
 type ProcessingInfo = { state: 'pending' | 'in_progress' | 'succeeded' | 'failed'; check_after_secs?: number; error?: { message?: string } };
 
-async function postTweet(token: string, text: string, mediaId: string, handle: string | null) {
-  const { data } = await api<{ data: { id: string } }>('x', `${API}/tweets`, { headers: bearer(token), json: { text, media: { media_ids: [mediaId] } } });
+async function postTweet(token: string, text: string, mediaIds: string[], handle: string | null) {
+  const { data } = await api<{ data: { id: string } }>('x', `${API}/tweets`, { headers: bearer(token), json: { text, media: { media_ids: mediaIds } } });
   return { status: 'published' as const, externalId: data.data.id, externalUrl: `https://x.com/${handle ?? 'i'}/status/${data.data.id}` };
+}
+
+/** Chunked upload of one file; returns its id and, for videos, how processing is going. */
+async function uploadMedia(token: string, media: PublishMedia): Promise<{ mediaId: string; info: ProcessingInfo | undefined }> {
+  const isVideo = media.kind === 'video';
+  const init = await api<{ data: { id: string } }>('x', `${API}/media/upload/initialize`, {
+    headers: bearer(token),
+    json: { media_type: media.contentType, total_bytes: media.sizeBytes, media_category: isVideo ? 'tweet_video' : 'tweet_image' },
+  });
+  const mediaId = init.data.data.id;
+  for (let offset = 0, index = 0; offset < media.sizeBytes; offset += SEGMENT, index++) {
+    const chunk = await readChunk(media.filePath, offset, Math.min(SEGMENT, media.sizeBytes - offset));
+    const form = new FormData();
+    form.set('segment_index', String(index));
+    form.set('media', new Blob([new Uint8Array(chunk)]), 'chunk');
+    await api('x', `${API}/media/upload/${mediaId}/append`, { headers: bearer(token), body: form, method: 'POST', retries: 2 });
+  }
+  const fin = await api<{ data: { id: string; processing_info?: ProcessingInfo } }>('x', `${API}/media/upload/${mediaId}/finalize`, { headers: bearer(token), method: 'POST' });
+  return { mediaId, info: fin.data.data.processing_info };
 }
 
 export const xPublisher: Publisher = {
   platform: 'x',
   async publish(ctx) {
-    const isVideo = ctx.media.kind === 'video';
-    const init = await api<{ data: { id: string } }>('x', `${API}/media/upload/initialize`, {
-      headers: bearer(ctx.accessToken),
-      json: { media_type: ctx.media.contentType, total_bytes: ctx.media.sizeBytes, media_category: isVideo ? 'tweet_video' : 'tweet_image' },
-    });
-    const mediaId = init.data.data.id;
-    for (let offset = 0, index = 0; offset < ctx.media.sizeBytes; offset += SEGMENT, index++) {
-      const chunk = await readChunk(ctx.media.filePath, offset, Math.min(SEGMENT, ctx.media.sizeBytes - offset));
-      const form = new FormData();
-      form.set('segment_index', String(index));
-      form.set('media', new Blob([new Uint8Array(chunk)]), 'chunk');
-      await api('x', `${API}/media/upload/${mediaId}/append`, { headers: bearer(ctx.accessToken), body: form, method: 'POST', retries: 2 });
-    }
-    const fin = await api<{ data: { id: string; processing_info?: ProcessingInfo } }>('x', `${API}/media/upload/${mediaId}/finalize`, { headers: bearer(ctx.accessToken), method: 'POST' });
-    const info = fin.data.data.processing_info;
+    const files = ctx.items && ctx.items.length > 1 ? ctx.items : [ctx.media];
+    if (files.length > 1 && files.some((m) => m.kind !== 'image')) throw new PlatformError('x', 400, 'X: a post with several files takes photos only.');
+    const uploads: { mediaId: string; info: ProcessingInfo | undefined }[] = [];
+    for (const m of files) uploads.push(await uploadMedia(ctx.accessToken, m));
+    const mediaIds = uploads.map((u) => u.mediaId);
     const text = ctx.caption.slice(0, Number(ctx.account.meta.maxChars ?? 280));
-    if (info && info.state !== 'succeeded') return { status: 'processing', state: { mediaId, text }, retryAfterS: Math.max(info.check_after_secs ?? 5, 2) };
-    return postTweet(ctx.accessToken, text, mediaId, ctx.account.handle);
+    const waiting = uploads.find((u) => u.info && u.info.state !== 'succeeded');
+    if (waiting) return { status: 'processing', state: { mediaIds, text }, retryAfterS: Math.max(waiting.info?.check_after_secs ?? 5, 2) };
+    return postTweet(ctx.accessToken, text, mediaIds, ctx.account.handle);
   },
   async check(ctx, state) {
-    const mediaId = String(state.mediaId);
-    const { data } = await api<{ data: { processing_info?: ProcessingInfo } }>('x', `${API}/media/upload?media_id=${encodeURIComponent(mediaId)}&command=STATUS`, { headers: bearer(ctx.accessToken), retries: 2 });
-    const info = data.data.processing_info;
-    if (info?.state === 'failed') throw new PlatformError('x', 422, `X could not process the media: ${info.error?.message ?? 'unknown error'}.`);
-    if (info && info.state !== 'succeeded') return { status: 'processing', state, retryAfterS: Math.max(info.check_after_secs ?? 5, 2) };
-    return postTweet(ctx.accessToken, String(state.text), mediaId, ctx.account.handle);
+    const mediaIds = Array.isArray(state.mediaIds) ? state.mediaIds.map(String) : [String(state.mediaId)];
+    for (const mediaId of mediaIds) {
+      const { data } = await api<{ data: { processing_info?: ProcessingInfo } }>('x', `${API}/media/upload?media_id=${encodeURIComponent(mediaId)}&command=STATUS`, { headers: bearer(ctx.accessToken), retries: 2 });
+      const info = data.data.processing_info;
+      if (info?.state === 'failed') throw new PlatformError('x', 422, `X could not process the media: ${info.error?.message ?? 'unknown error'}.`);
+      if (info && info.state !== 'succeeded') return { status: 'processing', state, retryAfterS: Math.max(info.check_after_secs ?? 5, 2) };
+    }
+    return postTweet(ctx.accessToken, String(state.text), mediaIds, ctx.account.handle);
   },
   async comment({ accessToken, account }, tweetId, text) {
     const { data } = await api<{ data: { id: string } }>('x', `${API}/tweets`, {

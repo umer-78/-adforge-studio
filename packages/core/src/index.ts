@@ -23,3 +23,4 @@ export * from './pronounce';
 export * from './best-times';
 export * from './csv';
 export * from './bio';
+export * from './zip';

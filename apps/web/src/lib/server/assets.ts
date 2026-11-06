@@ -1,7 +1,7 @@
 import 'server-only';
-import { carriedCredits, isRecord, SIGNED_URL_TTL, type AssetMeta, type AssetRow, type PlaybackInfo } from '@adforge/core';
+import { carriedCredits, extForMime, isRecord, PACK_ASPECTS, PACK_SIZES, SIGNED_URL_TTL, zipNames, type AssetMeta, type PackAspect, type AssetRow, type PlaybackInfo } from '@adforge/core';
 import { features, muxPlayback, storage, type ServiceClient } from '@adforge/core/server';
-import type { AssetView, PlaybackView } from '@/lib/types';
+import type { AssetView, DownloadLink, PlaybackView, SizeSlot } from '@/lib/types';
 
 const TTL = SIGNED_URL_TTL.preview;
 
@@ -118,4 +118,44 @@ export async function assetViewMap(sb: ServiceClient, workspaceId: string, ids: 
 
 export function maxUploadBytes(): number {
   return features().maxUploadBytes;
+}
+
+/** Short-lived download links with tidy, unique file names, for building a ZIP in the browser. */
+export async function downloadLinks(rows: AssetRow[], nameOf: (row: AssetRow) => string = (r) => r.name): Promise<DownloadLink[]> {
+  const names = zipNames(rows.map((r) => `${nameOf(r)}.${extForMime(r.mime_type)}`));
+  return Promise.all(
+    rows.map(async (r, i) => ({
+      id: r.id,
+      name: names[i]!,
+      bytes: Number(r.size_bytes ?? 0),
+      url: await storage(r.storage_driver).signedReadUrl(r.storage_key, SIGNED_URL_TTL.download),
+    })),
+  );
+}
+
+/** A file's copies in each shape, keyed by aspect: the file itself when it already has that shape, else the newest derived copy. */
+export async function sizeFamily(sb: ServiceClient, asset: AssetRow): Promise<Partial<Record<PackAspect, SizeSlot>>> {
+  const out: Partial<Record<PackAspect, SizeSlot>> = {};
+  if (asset.width && asset.height) {
+    const own = PACK_ASPECTS.find((a) => Math.abs(asset.width! / asset.height! - PACK_SIZES[a].width / PACK_SIZES[a].height) < 0.01);
+    if (own) out[own] = { id: asset.id, mode: null, original: true };
+  }
+  const { data, error } = await sb
+    .from('assets')
+    .select('id, meta')
+    .eq('parent_asset_id', asset.id)
+    .eq('workspace_id', asset.workspace_id)
+    .is('deleted_at', null)
+    .eq('status', 'ready')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) throw new Error(`Could not load the sizes: ${error.message}`);
+  for (const row of data ?? []) {
+    const meta = isRecord(row.meta) ? row.meta : {};
+    const size = isRecord(meta.size) ? meta.size : isRecord(meta.reframe) ? { ...meta.reframe, mode: 'smart' } : null;
+    const aspect = size && (PACK_ASPECTS as readonly unknown[]).includes(size.aspect) ? (size.aspect as PackAspect) : null;
+    if (!aspect || out[aspect]) continue;
+    out[aspect] = { id: row.id, mode: size!.mode === 'fit' ? 'fit' : 'smart', original: false };
+  }
+  return out;
 }

@@ -2,7 +2,7 @@ import { asJson, postCreateSchema } from '@adforge/core';
 import { enqueueJob } from '@adforge/core/server';
 import * as z from 'zod';
 import { badRequest, check, logActivity, owned, route } from '@/lib/server/api';
-import { publishableAsset, toPostViews } from '@/lib/server/distribution';
+import { carouselAssets, publishableAsset, toPostViews } from '@/lib/server/distribution';
 import { cleanHashtags, needsApproval, platformChecks, targetAccounts } from '@/lib/server/posts';
 
 const STATUSES = ['draft', 'pending_approval', 'scheduled', 'publishing', 'published', 'partially_published', 'failed', 'canceled'] as const;
@@ -35,12 +35,13 @@ export const GET = route({ query }, async ({ sb, caller, query: q }) => {
 /** Publishes now or at a set time to several accounts, each with its own caption and options. */
 export const POST = route({ body: postCreateSchema, scope: 'publish', limit: ['posts', 120, 3600] }, async ({ sb, caller, body }) => {
   const asset = await publishableAsset(sb, caller, body.assetId);
+  const carousel = await carouselAssets(sb, caller, asset, body.carouselAssetIds);
   if (body.projectId) await owned(sb, 'projects', body.projectId, caller, 'The project');
   if (body.abGroup && !z.string().uuid().safeParse(body.abGroup).success) throw badRequest('An A/B test group must be a test id.');
   if (body.abVariant && !body.abGroup) throw badRequest('An A/B variant needs a test group.');
   const accounts = await targetAccounts(sb, caller, body.targets);
   const hashtags = cleanHashtags(body.hashtags);
-  const checks = platformChecks(asset, { title: body.title, caption: body.caption, hashtags }, body.targets, accounts);
+  const checks = platformChecks(asset, { title: body.title, caption: body.caption, hashtags }, body.targets, accounts, carousel);
   const errors = checks.flatMap((c) => c.issues.filter((i) => i.level === 'error').map((i) => i.message));
   if (errors.length) throw badRequest(errors.join(' '), { checks });
 
@@ -57,6 +58,7 @@ export const POST = route({ body: postCreateSchema, scope: 'publish', limit: ['p
         workspace_id: caller.workspaceId,
         project_id: body.projectId ?? null,
         asset_id: asset.id,
+        carousel_asset_ids: carousel ? carousel.map((a) => a.id) : [],
         title: body.title?.trim() || null,
         caption: body.caption,
         first_comment: body.firstComment?.trim() || null,

@@ -274,6 +274,8 @@ export const postCreateSchema = z.object({
   abVariant: z.enum(['A', 'B', 'C', 'D']).nullish(),
   /** Posted as a comment right after the post goes live, where the network allows it. */
   firstComment: z.string().trim().max(2200).nullish(),
+  /** A carousel: every file in order, starting with assetId (2 to 10). */
+  carouselAssetIds: z.array(uuid).min(2, 'A carousel needs at least 2 files.').max(10, 'A carousel takes at most 10 files.').nullish(),
   projectId: uuid.nullish(),
 });
 export type PostCreate = z.infer<typeof postCreateSchema>;

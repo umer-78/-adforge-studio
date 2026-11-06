@@ -1,5 +1,5 @@
 import 'server-only';
-import { parseWorkspaceSettings, PLATFORM_SPECS, validateForPlatform, type AssetRow, type SocialAccountRow, type SocialPlatform } from '@adforge/core';
+import { parseWorkspaceSettings, PLATFORM_SPECS, textIssues, validateCarousel, validateForPlatform, type AssetRow, type SocialAccountRow, type SocialPlatform } from '@adforge/core';
 import { enqueueJob, type ServiceClient } from '@adforge/core/server';
 import { badRequest, hasRole, type Caller } from './api';
 import type { PlatformCheckView } from '@/lib/types';
@@ -25,14 +25,18 @@ export async function targetAccounts(sb: ServiceClient, caller: Caller, targets:
 }
 
 /** Each platform's rules for this media and copy: length, size, aspect, caption and title limits. */
-export function platformChecks(asset: AssetRow, post: { title?: string | null; caption: string; hashtags: string[] }, targets: TargetInput[], accounts: Map<string, SocialAccountRow>): PlatformCheckView[] {
+export function platformChecks(
+  asset: AssetRow,
+  post: { title?: string | null; caption: string; hashtags: string[] },
+  targets: TargetInput[],
+  accounts: Map<string, SocialAccountRow>,
+  carousel: AssetRow[] | null = null,
+): PlatformCheckView[] {
+  const facts = (a: AssetRow) => ({ durationS: a.duration_s == null ? null : Number(a.duration_s), sizeBytes: a.size_bytes == null ? null : Number(a.size_bytes), width: a.width, height: a.height, type: a.type });
   return targets.map((t) => {
     const platform = accounts.get(t.socialAccountId)!.platform as SocialPlatform;
-    const issues = validateForPlatform(
-      platform,
-      { durationS: asset.duration_s == null ? null : Number(asset.duration_s), sizeBytes: asset.size_bytes == null ? null : Number(asset.size_bytes), width: asset.width, height: asset.height, type: asset.type },
-      { caption: t.captionOverride ?? post.caption, hashtags: post.hashtags, title: post.title },
-    );
+    const text = { caption: t.captionOverride ?? post.caption, hashtags: post.hashtags, title: post.title };
+    const issues = carousel && carousel.length > 1 ? [...validateCarousel(platform, carousel.map(facts)), ...textIssues(platform, text)] : validateForPlatform(platform, facts(asset), text);
     return { platform, label: PLATFORM_SPECS[platform].label, issues };
   });
 }

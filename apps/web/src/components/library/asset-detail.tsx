@@ -1,12 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArchiveRestore, ArrowLeft, AudioLines, Box, Clapperboard, Copy, Crop, Download, ExternalLink, Ellipsis, Film, FolderInput, Gauge, ScanSearch, Send, Share2, ShieldAlert, ShieldCheck, Smartphone, Sparkles, Star, Tag, Trash2, Wand2 } from 'lucide-react';
+import { ArchiveRestore, ArrowLeft, AudioLines, Box, Clapperboard, Copy, Download, ExternalLink, Ellipsis, Film, FolderInput, Gauge, ScanSearch, Send, Share2, ShieldAlert, ShieldCheck, Smartphone, Sparkles, Star, Tag, Trash2, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { creditsCaption, formatBytes, type AdChecks, formatDuration, formatUsd, isRecord, mergeCredits, LICENSE_KINDS, licenseIssueMessage, type AdScore, type LicenseIssue } from '@adforge/core';
+import { creditsCaption, formatBytes, type AdChecks, formatDuration, formatUsd, isRecord, mergeCredits, LICENSE_KINDS, licenseIssueMessage, type AdScore, type LicenseIssue, type PackAspect } from '@adforge/core';
 import { AssetThumb } from '@/components/app/asset-card';
 import { FeedPreviewButton } from '@/components/preview/feed-preview';
 import { AdChecksCard } from './ad-checks';
@@ -25,10 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import { toAspect, useOpenInEditor } from '@/lib/hooks/use-open-in-editor';
-import type { AssetView } from '@/lib/types';
+import type { AssetView, SizeSlot } from '@/lib/types';
 import { cn, copyText, timeAgo } from '@/lib/utils';
 import { MoveDialog, TagDialog } from './organize-dialogs';
 import { ShareDialog } from './share-dialog';
+import { SizesCard } from './sizes-card';
 
 interface Segment {
   start: number;
@@ -61,6 +62,7 @@ interface Detail {
   license: { id: string; kind: string; commercial_use: boolean; source: string | null; provider: string | null; terms_url: string | null; notes: string | null; expires_at: string | null; attribution: string | null } | null;
   generation: { id: string; capability: string; model: string; provider: string; prompt: string | null; cost_actual_usd: number | null; cost_estimate_usd: number | null; created_at: string } | null;
   derived: { id: string; name: string; type: string; created_at: string }[];
+  sizes: Partial<Record<PackAspect, SizeSlot>>;
 }
 
 const LICENSE_LABEL: Record<string, string> = { generated: 'AI generated (provider terms)', owned: 'I own it', licensed: 'Licensed', royalty_free: 'Royalty free', public_domain: 'Public domain', unknown: 'Unknown' };
@@ -346,22 +348,7 @@ export function AssetDetail({ id }: { id: string }) {
               )}
             </div>
             {(a.type === 'video' || a.type === 'image') && <ScoreCard score={meta.score} onScore={(platform) => action.mutate({ action: 'score', platform })} pending={action.isPending && action.variables?.action === 'score'} />}
-            {a.type === 'video' && (
-              <div className="space-y-2 rounded-xl border p-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Crop className="size-4" /> Auto-reframe
-                </div>
-                <p className="text-xs text-muted-foreground">Follows the subject to make a copy for each platform shape.</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(['9:16', '1:1', '4:5', '16:9'] as const).map((ar) => (
-                    <Button key={ar} size="xs" variant={meta.reframes?.[ar] ? 'secondary' : 'outline'} onClick={() => (meta.reframes?.[ar] ? router.push(`/library/${meta.reframes[ar]}`) : action.mutate({ action: 'reframe', aspect: ar }))}>
-                      {ar}
-                      {meta.reframes?.[ar] ? ' ✓' : ''}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {(a.type === 'video' || a.type === 'image') && a.mimeType !== 'image/gif' && <SizesCard assetId={a.id} sizes={q.data.sizes} onStarted={invalidate} />}
             {isMedia && (
               <div className="space-y-2 rounded-xl border p-3">
                 <div className="text-sm font-medium">Detect</div>

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Check, ExternalLink, MessageSquare, RotateCcw, Send, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AssetThumb } from '@/components/app/asset-card';
 import { VideoPlayer } from '@/components/app/media-player';
 import { PlatformIcon, PLATFORM_META } from '@/components/app/platform-icon';
 import { StatusPill } from '@/components/growth/shared';
@@ -93,7 +94,8 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
   const role = me.data?.workspace.role;
   const isAdmin = role === 'owner' || role === 'admin';
   const needsApproval = me.data?.workspace.settings.requirePostApproval === true && !isAdmin;
-  const a = p.asset;
+  const [slide, setSlide] = useState(0);
+  const a = p.carousel.length > 1 ? (p.carousel[slide] ?? p.asset) : p.asset;
   return (
     <div className="space-y-5">
       <SheetHeader>
@@ -104,6 +106,7 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
           <StatusPill status={p.status} />
           {p.abVariant && <Badge variant="secondary">Variant {p.abVariant}</Badge>}
           {p.aiLabel && <Badge variant="outline">AI label</Badge>}
+          {p.carousel.length > 1 && <Badge variant="outline">Carousel · {p.carousel.length} files</Badge>}
           <span className="text-xs">{p.status === 'scheduled' ? `Goes out ${fmtWhen(p.scheduledAt)}` : p.publishedAt ? `Published ${fmtWhen(p.publishedAt)}` : ''}</span>
         </SheetDescription>
       </SheetHeader>
@@ -115,6 +118,24 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
             // eslint-disable-next-line @next/next/no-img-element
             a.thumbnailUrl && <img src={a.url ?? a.thumbnailUrl} alt={a.name} className="max-h-[50vh] w-full object-contain" />
           )}
+        </div>
+      )}
+      {p.carousel.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Carousel files">
+          {p.carousel.map((f, i) => (
+            <button
+              key={f.id}
+              type="button"
+              role="tab"
+              aria-selected={i === slide}
+              aria-label={`File ${i + 1}: ${f.name}`}
+              onClick={() => setSlide(i)}
+              className={`relative shrink-0 overflow-hidden rounded-lg border-2 ${i === slide ? 'border-primary' : 'border-transparent opacity-70 hover:opacity-100'}`}
+            >
+              <AssetThumb asset={f} className="size-14" hoverPlay={false} />
+              <span className="absolute left-0.5 top-0.5 rounded bg-black/60 px-1 text-[10px] tabular-nums text-white">{i + 1}</span>
+            </button>
+          ))}
         </div>
       )}
       {(p.caption || p.hashtags.length > 0) && (

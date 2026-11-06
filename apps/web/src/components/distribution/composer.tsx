@@ -13,6 +13,7 @@ import { LlmPrice } from '@/components/scripts/llm-price';
 import { FeedPreviewButton } from '@/components/preview/feed-preview';
 import { AdChecksPanel } from './ad-checks-panel';
 import { BestTimes } from './best-times';
+import { CarouselStrip } from './carousel-strip';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -38,7 +39,12 @@ interface Variant {
   asset: AssetView | null;
   /** Own caption for this variant; null uses the shared caption. */
   caption: string | null;
+  /** More files after `asset` make the variant a carousel. */
+  extra: AssetView[];
 }
+
+/** The ids to send for a carousel, or null for a single file. */
+const carouselIds = (v: Variant) => (v.asset && v.extra.length ? [v.asset.id, ...v.extra.map((e) => e.id)] : null);
 
 interface SocialCopy {
   title: string;
@@ -55,7 +61,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const qc = useQueryClient();
   const me = useMe();
   const social = useSocialAccounts();
-  const [variants, setVariants] = useState<Variant[]>([{ asset: null, caption: null }]);
+  const [variants, setVariants] = useState<Variant[]>([{ asset: null, caption: null, extra: [] }]);
   const [abGroup, setAbGroup] = useState<string | null>(initialAbGroup);
   const [accountIds, setAccountIds] = useState<string[]>([]);
   const [title, setTitle] = useState('');
@@ -69,7 +75,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const [aiLabel, setAiLabel] = useState<boolean | null>(null);
   const [rights, setRights] = useState(false);
   // Free media that asks for a credit: remind until every credit line is in the caption.
-  const credits = mergeCredits(...variants.map((v) => v.asset?.credits ?? []));
+  const credits = mergeCredits(...variants.flatMap((v) => [v.asset, ...v.extra]).map((a) => a?.credits ?? []));
   const missingCredit = missingCredits(credits, [caption, ...variants.map((v) => v.caption ?? '')].join('\n'));
 
   // Prefill from ?asset= / ?assets= (variants of an A/B test).
@@ -79,7 +85,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const [loadedKey, setLoadedKey] = useState('');
   if (preloaded?.length && preloadKey !== loadedKey) {
     setLoadedKey(preloadKey);
-    setVariants(preloaded.map((a) => ({ asset: a, caption: null })));
+    setVariants(preloaded.map((a) => ({ asset: a, caption: null, extra: [] })));
   }
   const now = useNow();
 
@@ -87,21 +93,21 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const selected = accounts.filter((a) => accountIds.includes(a.id));
   const platforms = [...new Set(selected.map((a) => a.platform))];
   const abMode = variants.length > 1;
-  const anyAi = variants.some((v) => v.asset?.isAiGenerated);
+  const anyAi = variants.some((v) => v.asset?.isAiGenerated || v.extra.some((e) => e.isAiGenerated));
   const label = aiLabel ?? (anyAi || !!me.data?.workspace.aiLabelDefault);
   const role = me.data?.workspace.role;
   const needsApproval = me.data?.workspace.settings.requirePostApproval === true && role !== 'owner' && role !== 'admin';
   const needsTitle = platforms.some((p) => PLATFORM_SPECS[p].requiresTitle);
 
   const targets = selected.map((a) => ({ socialAccountId: a.id, captionOverride: overrides[a.id]?.trim() ? overrides[a.id] : null }));
-  const checkKey = useDebounced(JSON.stringify({ v: variants.map((v) => [v.asset?.id, v.caption]), title, caption, hashtags, targets }), 500);
+  const checkKey = useDebounced(JSON.stringify({ v: variants.map((v) => [v.asset?.id, v.caption, carouselIds(v)]), title, caption, hashtags, targets }), 500);
   const checks = useQuery({
     queryKey: ['post-check', checkKey],
     queryFn: () =>
       Promise.all(
         variants.map((v) =>
           v.asset
-            ? api.post<{ checks: PlatformCheckView[]; license: string | null; ready: boolean }>('/posts/check', { assetId: v.asset.id, title: title || null, caption: v.caption ?? caption, hashtags, targets })
+            ? api.post<{ checks: PlatformCheckView[]; license: string | null; ready: boolean }>('/posts/check', { assetId: v.asset.id, carouselAssetIds: carouselIds(v), title: title || null, caption: v.caption ?? caption, hashtags, targets })
             : Promise.resolve(null),
         ),
       ),
@@ -157,6 +163,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
         out.push(
           await api.post<PostView>('/posts', {
             assetId: v.asset!.id,
+            carouselAssetIds: carouselIds(v),
             title: title.trim() || null,
             caption: v.caption ?? caption,
             firstComment: firstComment.trim() || null,
@@ -180,7 +187,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
       qc.invalidateQueries({ queryKey: ['posts'] });
       if (needsApproval) toast.success(`Sent for approval. An admin reviews ${posts.length > 1 ? 'the variants' : 'it'} before ${when === 'later' ? 'the scheduled time' : 'it goes out'}.`);
       else toast.success(when === 'later' ? `Scheduled ${posts.length > 1 ? `${posts.length} variants` : 'the post'}` : `Publishing ${posts.length > 1 ? `${posts.length} variants` : 'now'}…`);
-      setVariants([{ asset: null, caption: null }]);
+      setVariants([{ asset: null, caption: null, extra: [] }]);
       setAbGroup(null);
       setTitle('');
       setCaption('');
@@ -203,7 +210,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold">{abMode ? `A/B test · ${variants.length} variants` : 'Media'}</h2>
             {variants.length < 4 && (
-              <Button size="xs" variant="outline" onClick={() => setVariants((v) => [...v, { asset: null, caption: null }])}>
+              <Button size="xs" variant="outline" onClick={() => setVariants((v) => [...v, { asset: null, caption: null, extra: [] }])}>
                 <FlaskConical className="size-3.5" /> {abMode ? 'Add variant' : 'Make it an A/B test'}
               </Button>
             )}
@@ -219,7 +226,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
                     </button>
                   </div>
                 )}
-                <AssetSlot label="Video or photo" types={['video', 'image']} value={v.asset} onChange={(a) => setVariants((all) => all.map((x, j) => (j === i ? { ...x, asset: a } : x)))} required />
+                <AssetSlot label="Video or photo" types={['video', 'image']} value={v.asset} onChange={(a) => setVariants((all) => all.map((x, j) => (j === i ? { ...x, asset: a, extra: x.extra.filter((e) => e.id !== a?.id) } : x)))} required />
                 {v.asset && (
                   <FeedPreviewButton
                     asset={v.asset}
@@ -233,6 +240,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
                     }}
                   />
                 )}
+                {v.asset && <CarouselStrip first={v.asset} files={v.extra} onChange={(extra) => setVariants((all) => all.map((x, k) => (k === i ? { ...x, extra } : x)))} />}
                 {abMode && (
                   <Textarea
                     rows={2}
@@ -368,7 +376,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
         </section>
 
         <Checks results={checks.data ?? []} loading={checks.isFetching} error={checks.error} letters={abMode} />
-        <AdChecksPanel text={[title, caption, ...variants.map((v) => v.caption ?? ''), ...Object.values(overrides), hashtags.map((h) => `#${h}`).join(' ')].join('\n')} assets={variants.map((v) => v.asset)} />
+        <AdChecksPanel text={[title, caption, ...variants.map((v) => v.caption ?? ''), ...Object.values(overrides), hashtags.map((h) => `#${h}`).join(' ')].join('\n')} assets={variants.flatMap((v) => [v.asset, ...v.extra])} />
 
         {missing.length > 0 && (
           <ul className="space-y-1 text-xs text-muted-foreground">

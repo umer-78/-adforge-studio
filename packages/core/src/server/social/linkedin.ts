@@ -82,7 +82,9 @@ async function uploadImage(token: string, owner: string, filePath: string, size:
   return data.value.image;
 }
 
-async function createPost(token: string, author: string, commentary: string, mediaUrn: string, title: string | null) {
+const mediaContent = (id: string, title: string | null) => ({ media: { id, ...(title ? { title: title.slice(0, 200) } : {}) } });
+
+async function createPost(token: string, author: string, commentary: string, content: Record<string, unknown>) {
   const res = await api<unknown>('linkedin', `${REST}/posts`, {
     headers: headers(token),
     json: {
@@ -90,7 +92,7 @@ async function createPost(token: string, author: string, commentary: string, med
       commentary: linkedinCommentary(commentary).slice(0, 3000),
       visibility: 'PUBLIC',
       distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
-      content: { media: { id: mediaUrn, ...(title ? { title: title.slice(0, 200) } : {}) } },
+      content,
       lifecycleState: 'PUBLISHED',
       isReshareDisabledByAuthor: false,
     },
@@ -104,9 +106,15 @@ export const linkedinPublisher: Publisher = {
   platform: 'linkedin',
   async publish(ctx) {
     const author = String(ctx.account.meta.authorUrn ?? `urn:li:person:${ctx.account.externalId}`);
+    if (ctx.items && ctx.items.length > 1) {
+      if (ctx.items.some((m) => m.kind !== 'image')) throw new PlatformError('linkedin', 400, 'LinkedIn: a post with several files takes photos only.');
+      const images: string[] = [];
+      for (const m of ctx.items) images.push(await uploadImage(ctx.accessToken, author, m.filePath, m.sizeBytes, m.contentType));
+      return createPost(ctx.accessToken, author, ctx.caption, { multiImage: { images: images.map((id) => ({ id })) } });
+    }
     if (ctx.media.kind === 'image') {
       const image = await uploadImage(ctx.accessToken, author, ctx.media.filePath, ctx.media.sizeBytes, ctx.media.contentType);
-      return createPost(ctx.accessToken, author, ctx.caption, image, ctx.title);
+      return createPost(ctx.accessToken, author, ctx.caption, mediaContent(image, ctx.title));
     }
     const video = await uploadVideo(ctx.accessToken, author, ctx.media.filePath, ctx.media.sizeBytes);
     return { status: 'processing', state: { video, author }, retryAfterS: 10 };
@@ -117,7 +125,7 @@ export const linkedinPublisher: Publisher = {
     if (data.status === 'PROCESSING_FAILED') throw new PlatformError('linkedin', 422, `LinkedIn could not process the video: ${data.processingFailureReason ?? 'unknown reason'}.`);
     if (data.status !== 'AVAILABLE') return { status: 'processing', state, retryAfterS: 15 };
     await sleep(500);
-    return createPost(ctx.accessToken, String(state.author), ctx.caption, video, ctx.title);
+    return createPost(ctx.accessToken, String(state.author), ctx.caption, mediaContent(video, ctx.title));
   },
   async comment({ accessToken, account }, urn, text) {
     const actor = String(account.meta.authorUrn ?? `urn:li:person:${account.externalId}`);

@@ -52,6 +52,17 @@ export async function publishableAsset(sb: ServiceClient, caller: Caller, id: st
   return asset;
 }
 
+/** The files of a carousel, in order and each publishable. The list must start with the post's main file. */
+export async function carouselAssets(sb: ServiceClient, caller: Caller, first: AssetRow, ids: string[] | null | undefined): Promise<AssetRow[] | null> {
+  if (!ids?.length) return null;
+  if (ids.length < 2) throw new AppError('invalid_request', 'A carousel needs at least 2 files.', 400);
+  if (new Set(ids).size !== ids.length) throw new AppError('invalid_request', 'Each file can be in a carousel once.', 400);
+  if (ids[0] !== first.id) throw new AppError('invalid_request', 'The carousel must start with the post’s main file.', 400);
+  const rest: AssetRow[] = [];
+  for (const id of ids.slice(1)) rest.push(await publishableAsset(sb, caller, id));
+  return [first, ...rest];
+}
+
 /* ---------------------------------- Social ---------------------------------- */
 
 export function toSocialAccountView(r: SocialAccountRow): SocialAccountView {
@@ -102,7 +113,7 @@ export async function toPostViews(sb: ServiceClient, workspaceId: string, rows: 
   const targets = targetRows ?? [];
   const accountIds = [...new Set(targets.map((t) => t.social_account_id))];
   const [assets, accounts] = await Promise.all([
-    assetViewMap(sb, workspaceId, rows.map((r) => r.asset_id)),
+    assetViewMap(sb, workspaceId, rows.flatMap((r) => [r.asset_id, ...(r.carousel_asset_ids ?? [])])),
     accountIds.length ? sb.from('social_accounts').select('id, handle, display_name, avatar_url, provider').in('id', accountIds).then((r) => r.data ?? []) : [],
   ]);
   const accountById = new Map(accounts.map((a) => [a.id, a]));
@@ -144,6 +155,7 @@ export async function toPostViews(sb: ServiceClient, workspaceId: string, rows: 
       abVariant: r.ab_variant as PostView['abVariant'],
       aiLabel: r.ai_generated_label,
       asset: r.asset_id ? (assets[r.asset_id] ?? null) : null,
+      carousel: (r.carousel_asset_ids ?? []).flatMap((id) => (assets[id] ? [assets[id]] : [])),
       platforms: [...new Set(views.map((t) => t.platform))],
       targets: views,
       totals,
