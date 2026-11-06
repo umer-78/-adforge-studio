@@ -27,6 +27,7 @@ export const APP_PREFIXES = [
   '/inspiration',
   '/ads',
   '/publish',
+  '/bio',
   '/agent',
   '/analytics',
   '/settings',

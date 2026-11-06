@@ -550,6 +550,7 @@ function FirstCommentField({ value, onChange, accounts }: { value: string; onCha
   return (
     <Field
       label="First comment"
+      htmlFor="first-comment"
       hint={
         value.trim() && names.length
           ? `Posted right after publishing. Not posted on ${names.join(', ')}, which do not allow it.`
@@ -557,7 +558,7 @@ function FirstCommentField({ value, onChange, accounts }: { value: string; onCha
       }
       aside={<span className="tabular-nums">{value.length}/2200</span>}
     >
-      <Textarea rows={2} value={value} onChange={(e) => onChange(e.target.value)} maxLength={2200} placeholder="Shop the look: example.com/spring" />
+      <Textarea id="first-comment" rows={2} value={value} onChange={(e) => onChange(e.target.value)} maxLength={2200} placeholder="Shop the look: example.com/spring" />
     </Field>
   );
 }

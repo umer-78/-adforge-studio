@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   Layers,
+  Link2,
   Megaphone,
   Music,
   Radar,
@@ -72,6 +73,7 @@ export const NAV: { title: string; items: NavItem[] }[] = [
     title: 'Distribute',
     items: [
       { href: '/publish', label: 'Publish', icon: Send, description: 'Post and schedule to 7 platforms' },
+      { href: '/bio', label: 'Link in bio', icon: Link2, description: 'One public page for your links, with clicks counted' },
       { href: '/ads', label: 'Ads', icon: Megaphone, description: 'Launch Meta and TikTok ads' },
       { href: '/analytics', label: 'Analytics', icon: ChartColumn, description: 'Posts, ads and spend' },
     ],

@@ -1,4 +1,4 @@
-import type { AssetSource, AssetStatus, AssetType, Capability, LicenseKind, LicenseState, KeyProvider, ModelDef, ScriptLine } from '@adforge/core';
+import type { AssetSource, AssetStatus, AssetType, BioTheme, Capability, LicenseKind, LicenseState, KeyProvider, ModelDef, ScriptLine } from '@adforge/core';
 
 /** Asset as the browser sees it: rows plus short-lived signed URLs. */
 export interface AssetView {
@@ -937,4 +937,33 @@ export interface AgentPlanEstimateView {
   generate: { low: number; high: number; shotsLow: number; shotsHigh: number; voice: number; modelId: string; modelLabel: string } | null;
   optimize: number;
   total: { low: number; high: number };
+}
+
+/* ------------------------------- Link in bio ------------------------------- */
+
+export interface BioLinkView {
+  id: string;
+  label: string;
+  url: string;
+  enabled: boolean;
+  clicks: number;
+}
+
+export interface BioPageView {
+  id: string;
+  slug: string;
+  title: string;
+  bio: string;
+  avatarAssetId: string | null;
+  avatarUrl: string | null;
+  theme: BioTheme;
+  published: boolean;
+  views: number;
+  links: BioLinkView[];
+  createdAt: string;
+}
+
+export interface BioStats {
+  days: { day: string; views: number; clicks: number }[];
+  linkClicks: Record<string, number>;
 }

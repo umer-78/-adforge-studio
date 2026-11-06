@@ -361,3 +361,32 @@ export function stock(kind: string | null, provider: string | null) {
   });
   return { items, page: 1, hasMore: false, provider: active, providers };
 }
+
+/** A published link-in-bio page with a month of visits. */
+export const bioPage = {
+  id: '6b9d6c1e-2f4a-4c8e-9b1a-7d2e5f3a1c90',
+  slug: 'everydaybottle',
+  title: 'Everyday Bottle Co.',
+  bio: 'Bottles that keep drinks cold for 24 hours. Free shipping over $40.',
+  avatarAssetId: null,
+  avatarUrl: null,
+  theme: { mode: 'brand' as const, accent: '#0d9488', buttons: 'pill' as const },
+  published: true,
+  views: 4210,
+  links: [
+    { id: 'b1000000-0000-4000-8000-000000000001', label: 'Shop the spring sale', url: 'https://example.com/spring', enabled: true, clicks: 812 },
+    { id: 'b1000000-0000-4000-8000-000000000002', label: 'Watch the 24-hour ice test', url: 'https://example.com/ice-test', enabled: true, clicks: 341 },
+    { id: 'b1000000-0000-4000-8000-000000000003', label: 'Find a store near you', url: 'https://example.com/stores', enabled: true, clicks: 97 },
+    { id: 'b1000000-0000-4000-8000-000000000004', label: 'Wholesale', url: 'https://example.com/wholesale', enabled: false, clicks: 12 },
+  ],
+  createdAt: '2026-10-01T10:00:00.000Z',
+};
+
+export function bioStats() {
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const day = new Date(Date.parse(NOW_ISO) - (29 - i) * 86_400_000).toISOString().slice(0, 10);
+    const views = 90 + ((i * 37) % 70);
+    return { day, views, clicks: Math.round(views * (0.24 + ((i * 13) % 10) / 100)) };
+  });
+  return { days, linkClicks: { [bioPage.links[0]!.id]: 402, [bioPage.links[1]!.id]: 188, [bioPage.links[2]!.id]: 51 } };
+}
