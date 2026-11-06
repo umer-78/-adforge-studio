@@ -1954,6 +1954,9 @@ export type Database = {
           error: string | null
           external_id: string | null
           external_url: string | null
+          first_comment_error: string | null
+          first_comment_id: string | null
+          first_comment_status: string | null
           hashtags_override: string[] | null
           id: string
           job_id: string | null
@@ -1975,6 +1978,9 @@ export type Database = {
           error?: string | null
           external_id?: string | null
           external_url?: string | null
+          first_comment_error?: string | null
+          first_comment_id?: string | null
+          first_comment_status?: string | null
           hashtags_override?: string[] | null
           id?: string
           job_id?: string | null
@@ -1996,6 +2002,9 @@ export type Database = {
           error?: string | null
           external_id?: string | null
           external_url?: string | null
+          first_comment_error?: string | null
+          first_comment_id?: string | null
+          first_comment_status?: string | null
           hashtags_override?: string[] | null
           id?: string
           job_id?: string | null
@@ -2050,6 +2059,7 @@ export type Database = {
           caption: string
           created_at: string
           created_by: string | null
+          first_comment: string | null
           hashtags: string[]
           id: string
           project_id: string | null
@@ -2070,6 +2080,7 @@ export type Database = {
           caption?: string
           created_at?: string
           created_by?: string | null
+          first_comment?: string | null
           hashtags?: string[]
           id?: string
           project_id?: string | null
@@ -2090,6 +2101,7 @@ export type Database = {
           caption?: string
           created_at?: string
           created_by?: string | null
+          first_comment?: string | null
           hashtags?: string[]
           id?: string
           project_id?: string | null

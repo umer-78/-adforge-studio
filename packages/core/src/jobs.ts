@@ -15,6 +15,7 @@ export const JOB_PAYLOADS = {
   'render.timeline': z.object({ renderId: id }),
   'publish.post': z.object({ postTargetId: id }),
   'publish.metrics': z.object({ postTargetId: id.optional() }),
+  'publish.comment': z.object({ postTargetId: id }),
   'product.import': z.object({ productId: id }),
   /** Downloads a free library file into an asset the API already created. */
   'stock.import': z.object({ assetId: id }),
@@ -60,6 +61,7 @@ export const JOB_LABELS: Record<JobType, string> = {
   'render.timeline': 'Rendering video',
   'publish.post': 'Publishing',
   'publish.metrics': 'Syncing post metrics',
+  'publish.comment': 'Posting the first comment',
   'product.import': 'Importing product page',
   'stock.import': 'Importing free media',
   'media.check': 'Checking flashes, loudness and wording',
@@ -87,5 +89,5 @@ export const JOB_POOLS: { name: string; types: JobType[]; concurrency: number; l
     concurrency: 4,
     leaseS: 600,
   },
-  { name: 'network', types: ['publish.post', 'publish.metrics', 'stock.import', 'ads.launch', 'ads.status', 'ads.sync', 'competitors.sync', 'trash.purge', 'storage.purge'], concurrency: 3, leaseS: 900 },
+  { name: 'network', types: ['publish.post', 'publish.metrics', 'publish.comment', 'stock.import', 'ads.launch', 'ads.status', 'ads.sync', 'competitors.sync', 'trash.purge', 'storage.purge'], concurrency: 3, leaseS: 900 },
 ];

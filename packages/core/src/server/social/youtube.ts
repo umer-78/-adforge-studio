@@ -6,6 +6,8 @@ const SCOPES = [
   'https://www.googleapis.com/auth/youtube.upload',
   'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/yt-analytics.readonly',
+  // Posting the first comment under an upload.
+  'https://www.googleapis.com/auth/youtube.force-ssl',
 ];
 const CHUNK = 32 * 256 * 1024; // 8 MB, a multiple of 256 KB as resumable uploads require
 
@@ -141,6 +143,13 @@ export const youtubePublisher: Publisher = {
     }
     if (!video?.id) throw new PlatformError('youtube', 502, 'YouTube did not confirm the upload.');
     return { status: 'published', externalId: video.id, externalUrl: isShort ? `https://www.youtube.com/shorts/${video.id}` : `https://www.youtube.com/watch?v=${video.id}` };
+  },
+  async comment({ accessToken }, videoId, text) {
+    const { data } = await api<{ id?: string }>('youtube', 'https://www.googleapis.com/youtube/v3/commentThreads?part=snippet', {
+      headers: { authorization: `Bearer ${accessToken}` },
+      json: { snippet: { videoId, topLevelComment: { snippet: { textOriginal: text.slice(0, 10_000) } } } },
+    });
+    return { id: data.id ?? null };
   },
   async metrics({ accessToken }, videoId) {
     const auth = { authorization: `Bearer ${accessToken}` };

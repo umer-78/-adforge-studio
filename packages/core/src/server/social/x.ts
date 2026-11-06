@@ -92,6 +92,13 @@ export const xPublisher: Publisher = {
     if (info && info.state !== 'succeeded') return { status: 'processing', state, retryAfterS: Math.max(info.check_after_secs ?? 5, 2) };
     return postTweet(ctx.accessToken, String(state.text), mediaId, ctx.account.handle);
   },
+  async comment({ accessToken, account }, tweetId, text) {
+    const { data } = await api<{ data: { id: string } }>('x', `${API}/tweets`, {
+      headers: bearer(accessToken),
+      json: { text: text.slice(0, Number(account.meta.maxChars ?? 280)), reply: { in_reply_to_tweet_id: tweetId } },
+    });
+    return { id: data.data.id };
+  },
   async metrics({ accessToken }, tweetId) {
     const { data } = await api<{ data?: { public_metrics?: Record<string, number>; non_public_metrics?: Record<string, number>; organic_metrics?: Record<string, number> } }>(
       'x',

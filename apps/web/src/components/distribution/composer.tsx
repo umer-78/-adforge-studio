@@ -12,6 +12,7 @@ import { ChipList } from '@/components/growth/shared';
 import { LlmPrice } from '@/components/scripts/llm-price';
 import { FeedPreviewButton } from '@/components/preview/feed-preview';
 import { AdChecksPanel } from './ad-checks-panel';
+import { BestTimes } from './best-times';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -60,6 +61,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState<string[]>([]);
+  const [firstComment, setFirstComment] = useState('');
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [options, setOptions] = useState<Record<string, Options>>({});
   const [when, setWhen] = useState<'now' | 'later'>('now');
@@ -155,6 +157,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
             assetId: v.asset!.id,
             title: title.trim() || null,
             caption: v.caption ?? caption,
+            firstComment: firstComment.trim() || null,
             hashtags,
             targets: selected.map((a) => {
               const o = { ...(options[a.id] ?? {}) };
@@ -178,6 +181,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
       setAbGroup(null);
       setTitle('');
       setCaption('');
+      setFirstComment('');
       setHashtags([]);
       setOverrides({});
       setRights(false);
@@ -310,6 +314,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
           <Field label="Hashtags" hint="Without the #. Each platform's limit is checked below.">
             <ChipList items={hashtags} onChange={(h) => setHashtags(h.map((x) => x.replace(/^#/, '').replace(/\s+/g, '')))} max={30} maxLength={80} placeholder="skincare" />
           </Field>
+          <FirstCommentField value={firstComment} onChange={setFirstComment} accounts={selected} />
         </section>
 
         {selected.length > 0 && (
@@ -327,6 +332,7 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
             <Segmented value={when} onChange={setWhen} options={[{ value: 'now', label: 'Publish now' }, { value: 'later', label: 'Schedule' }]} />
           </Field>
           {when === 'later' && <Input type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} min={toLocalInput(new Date().toISOString())} aria-label="Publish at" />}
+          {when === 'later' && <BestTimes platforms={[...new Set(selected.map((a) => a.platform))]} value={at} onPick={setAt} />}
           <label className="flex items-start justify-between gap-3 text-sm">
             <span>
               Label as AI-generated
@@ -532,5 +538,26 @@ function AccountPanel({ account: a, options: o, onOptions, override, onOverride,
         </button>
       )}
     </div>
+  );
+}
+
+/** Networks whose API lets the app comment on its own post. */
+const COMMENT_PLATFORMS = new Set<SocialPlatformId>(['instagram', 'facebook', 'youtube', 'linkedin', 'x']);
+
+function FirstCommentField({ value, onChange, accounts }: { value: string; onChange: (v: string) => void; accounts: SocialAccountView[] }) {
+  const skipped = accounts.filter((a) => a.provider === 'ayrshare' || !COMMENT_PLATFORMS.has(a.platform));
+  const names = [...new Set(skipped.map((a) => (a.provider === 'ayrshare' ? `${PLATFORM_META[a.platform]?.label ?? a.platform} through Ayrshare` : (PLATFORM_META[a.platform]?.label ?? a.platform))))];
+  return (
+    <Field
+      label="First comment"
+      hint={
+        value.trim() && names.length
+          ? `Posted right after publishing. Not posted on ${names.join(', ')}, which do not allow it.`
+          : 'Optional. Posted right after publishing on Instagram, Facebook, YouTube, LinkedIn and X; good for links, hashtags or credits.'
+      }
+      aside={<span className="tabular-nums">{value.length}/2200</span>}
+    >
+      <Textarea rows={2} value={value} onChange={(e) => onChange(e.target.value)} maxLength={2200} placeholder="Shop the look: example.com/spring" />
+    </Field>
   );
 }

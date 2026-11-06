@@ -35,6 +35,9 @@ const SOCIAL_SCOPES = [
   'instagram_basic',
   'instagram_content_publish',
   'instagram_manage_insights',
+  // First comments on the posts this app publishes.
+  'instagram_manage_comments',
+  'pages_manage_engagement',
 ];
 
 export function metaAuthorizeUrl(scopes: string[], state: string, redirectUri: string): string {
@@ -124,6 +127,10 @@ export const instagramPublisher: Publisher = {
     const published = await metaPost<{ id: string }>(`/${ctx.account.externalId}/media_publish`, ctx.accessToken, { creation_id: containerId });
     const media = await metaGet<{ permalink?: string }>(`/${published.id}`, ctx.accessToken, { fields: 'permalink' }).catch(() => ({ permalink: undefined }));
     return { status: 'published', externalId: published.id, externalUrl: media.permalink ?? null };
+  },
+  async comment({ accessToken }, mediaId, text) {
+    const res = await metaPost<{ id?: string }>(`/${mediaId}/comments`, accessToken, { message: text.slice(0, 2200) });
+    return { id: res.id ?? null };
   },
   async metrics({ accessToken }, mediaId) {
     const base = await metaGet<{ like_count?: number; comments_count?: number; media_product_type?: string }>(`/${mediaId}`, accessToken, { fields: 'like_count,comments_count,media_product_type' });
@@ -217,6 +224,10 @@ export const facebookPublisher: Publisher = {
     if (!done) return { status: 'processing', state, retryAfterS: 20, externalId: videoId };
     const url = v.permalink_url ? (v.permalink_url.startsWith('http') ? v.permalink_url : `https://www.facebook.com${v.permalink_url}`) : null;
     return { status: 'published', externalId: videoId, externalUrl: url };
+  },
+  async comment({ accessToken }, id, text) {
+    const res = await metaPost<{ id?: string }>(`/${id}/comments`, accessToken, { message: text.slice(0, 8000) });
+    return { id: res.id ?? null };
   },
   async metrics({ accessToken }, id): Promise<MetricsSnapshot | null> {
     const out = emptyMetrics();

@@ -8,6 +8,7 @@ import { cleanHashtags } from '@/lib/server/posts';
 const patch = z.object({
   title: z.string().max(200).nullish(),
   caption: z.string().max(5000).optional(),
+  firstComment: z.string().trim().max(2200).nullish(),
   hashtags: z.array(z.string().max(80)).max(30).optional(),
   /** A new time, or null to publish now. */
   scheduledAt: z.string().datetime({ offset: true }).nullish(),
@@ -64,6 +65,7 @@ export const PATCH = route({ body: patch, scope: 'publish' }, async ({ sb, calle
       .update({
         ...(body.title !== undefined ? { title: body.title?.trim() || null } : {}),
         ...(body.caption !== undefined ? { caption: body.caption } : {}),
+        ...(body.firstComment !== undefined ? { first_comment: body.firstComment || null } : {}),
         ...(body.hashtags ? { hashtags: cleanHashtags(body.hashtags) } : {}),
         status,
         scheduled_at: scheduledAt,

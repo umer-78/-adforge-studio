@@ -1,6 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+  applyPronunciations,
+  parseWorkspaceSettings,
   asJson,
   CAPABILITIES,
   expandReferences,
@@ -299,6 +301,11 @@ async function inputAudioBlob(ctx: JobContext, assets: Map<string, AssetRow>, id
   return new Blob([new Uint8Array(await readFile(mp3))], { type: 'audio/mpeg' });
 }
 
+async function pronunciationsFor(ctx: JobContext, workspaceId: string) {
+  const { data } = await ctx.sb.from('workspaces').select('settings').eq('id', workspaceId).maybeSingle();
+  return parseWorkspaceSettings(data?.settings).pronunciations;
+}
+
 interface DialogueLine {
   text: string;
   voiceId: string;
@@ -326,6 +333,9 @@ async function runElevenLabs(ctx: JobContext, gen: GenerationRow, model: ModelDe
   const key = await requireProviderKey(gen.workspace_id, 'elevenlabs');
   const dir = await ctx.tmp();
   const body = model.buildInput(p, inputs);
+  // The workspace's pronunciations (brand names, initialisms) apply to everything spoken.
+  const spoken = model.capability === 'tts' || model.capability === 'dialogue' ? await pronunciationsFor(ctx, gen.workspace_id) : [];
+  if (spoken.length && typeof body.text === 'string') body.text = applyPronunciations(body.text, spoken);
   let audio: Buffer;
   const meta: Record<string, unknown> = { role: model.capability === 'music' ? 'music' : model.capability === 'sfx' ? 'sfx' : 'voice' };
   let transcript: { text: string; words: { text: string; start: number; end: number }[] } | null = null;
@@ -342,7 +352,7 @@ async function runElevenLabs(ctx: JobContext, gen: GenerationRow, model: ModelDe
     case 'dialogue': {
       const lines = dialogueLines(gen, p);
       if (!lines.length) throw new PermanentError('Add dialogue lines with a voice for each speaker.');
-      audio = await elevenDialogue(key, lines.map((l) => ({ text: l.text, voice_id: l.voiceId })), String(body.model_id ?? 'eleven_v3'));
+      audio = await elevenDialogue(key, lines.map((l) => ({ text: applyPronunciations(l.text, spoken), voice_id: l.voiceId })), String(body.model_id ?? 'eleven_v3'));
       break;
     }
     case 'sts': {

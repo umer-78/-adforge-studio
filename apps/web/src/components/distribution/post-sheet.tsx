@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, ExternalLink, RotateCcw, Send, Trash2, X } from 'lucide-react';
+import { CalendarClock, ExternalLink, MessageSquare, RotateCcw, Send, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { VideoPlayer } from '@/components/app/media-player';
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/misc';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { api, errorMessage } from '@/lib/api-client';
-import type { PostMetricsView, PostView } from '@/lib/types';
+import type { PostMetricsView, PostTargetView, PostView } from '@/lib/types';
 import { formatNumber, formatPercent } from '@/lib/utils';
 
 export const fmtWhen = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
@@ -117,6 +117,14 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
           {p.hashtags.length > 0 && <div className="mt-2 text-primary">{p.hashtags.map((h) => `#${h}`).join(' ')}</div>}
         </div>
       )}
+      {p.firstComment && (
+        <div className="rounded-xl border border-dashed p-3 text-sm whitespace-pre-line">
+          <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <MessageSquare className="size-3.5" /> First comment
+          </div>
+          {p.firstComment}
+        </div>
+      )}
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold">Accounts</h3>
@@ -128,6 +136,7 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
               <StatusPill status={t.status} />
             </div>
             {t.error && <p className="text-xs text-destructive">{t.error}</p>}
+            {p.firstComment && t.firstComment && <FirstCommentLine state={t.firstComment} />}
             {t.status === 'published' && <MetricsLine m={t.metrics} className="block text-xs text-muted-foreground" />}
             {t.externalUrl && (
               <a href={t.externalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
@@ -179,4 +188,10 @@ function Body({ post: p, onClose }: { post: PostView; onClose: () => void }) {
       </div>
     </div>
   );
+}
+
+function FirstCommentLine({ state }: { state: NonNullable<PostTargetView['firstComment']> }) {
+  if (state.status === 'posted') return <p className="text-xs text-success">First comment posted.</p>;
+  if (state.status === 'unsupported') return <p className="text-xs text-muted-foreground">This network does not allow the first comment, so it was not posted.</p>;
+  return <p className="text-xs text-destructive">First comment not posted{state.error ? `: ${state.error}` : '.'}</p>;
 }

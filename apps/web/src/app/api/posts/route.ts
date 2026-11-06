@@ -58,6 +58,7 @@ export const POST = route({ body: postCreateSchema, scope: 'publish', limit: ['p
         asset_id: asset.id,
         title: body.title?.trim() || null,
         caption: body.caption,
+        first_comment: body.firstComment?.trim() || null,
         hashtags,
         status: scheduled ? 'scheduled' : 'publishing',
         scheduled_at: scheduled ? when.toISOString() : null,

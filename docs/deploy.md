@@ -96,6 +96,22 @@ Publishing and ads use each platform's developer app (the `GOOGLE_`, `TIKTOK_`, 
 
 Set `NEXT_PUBLIC_CONTACT_EMAIL` on Vercel so those pages show a contact address; reviewers expect one.
 
+Add these permissions to each app. A permission the app has not been given makes the sign-in
+screen fail, so add them before connecting accounts. After adding one, reconnect the accounts in
+**Settings > Accounts** so their tokens include it.
+
+| App | Permissions |
+| --- | --- |
+| Meta (Facebook Login for Business) | `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `read_insights`, `business_management`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `instagram_manage_comments`; for ads also `ads_management`, `ads_read` |
+| Google (YouTube Data API v3 and YouTube Analytics API enabled) | `youtube.upload`, `youtube.readonly`, `yt-analytics.readonly`, `youtube.force-ssl` |
+| LinkedIn (Share on LinkedIn, Sign In with LinkedIn using OpenID Connect) | `openid`, `profile`, `email`, `w_member_social` |
+| X | `tweet.read`, `tweet.write`, `users.read`, `media.write`, `offline.access` |
+| TikTok (Content Posting API) | `user.info.basic`, `user.info.profile`, `video.publish`, `video.list` |
+| Pinterest | `boards:read`, `boards:write`, `pins:read`, `pins:write`, `user_accounts:read` |
+
+`pages_manage_engagement`, `instagram_manage_comments` and `youtube.force-ssl` are only used to post
+a post's first comment.
+
 In the Meta app, also set:
 
 - **App settings > Basic > User data deletion**: choose *Data deletion callback URL* and enter

@@ -9,7 +9,7 @@ import { aiFinalize, aiGenerate, aiPoll } from './generate';
 import { mediaCheck } from './checks';
 import { mediaDetect, mediaProcess } from './media';
 import { productImport } from './product';
-import { publishMetrics, publishPost } from './publish';
+import { publishComment, publishMetrics, publishPost } from './publish';
 import { mediaReframe } from './reframe';
 import { renderTimeline } from './render';
 import { scriptWrite } from './script';
@@ -33,6 +33,7 @@ export const HANDLERS: HandlerMap = {
   'render.timeline': renderTimeline,
   'publish.post': publishPost,
   'publish.metrics': publishMetrics,
+  'publish.comment': publishComment,
   'product.import': productImport,
   'stock.import': stockImport,
   'script.write': scriptWrite,

@@ -653,6 +653,8 @@ export interface PostTargetView {
   status: 'pending' | 'publishing' | 'processing' | 'published' | 'failed' | 'canceled';
   externalUrl: string | null;
   error: string | null;
+  /** What happened to the post's first comment here; null until the post is out or when there is none. */
+  firstComment: { status: 'posted' | 'failed' | 'unsupported'; error: string | null } | null;
   attempts: number;
   publishedAt: string | null;
   metrics: PostMetricsView;
@@ -663,6 +665,8 @@ export interface PostView {
   id: string;
   title: string | null;
   caption: string;
+  /** Posted as a comment under each published copy, where the network allows it. */
+  firstComment: string | null;
   hashtags: string[];
   status: 'draft' | 'scheduled' | 'publishing' | 'published' | 'partially_published' | 'failed' | 'canceled';
   scheduledAt: string | null;
