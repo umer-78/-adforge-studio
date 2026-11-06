@@ -8,6 +8,7 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { formatBytes, formatDuration, formatUsd, isRecord, LICENSE_KINDS, licenseIssueMessage, type AdScore, type LicenseIssue } from '@adforge/core';
 import { AssetThumb } from '@/components/app/asset-card';
+import { FeedPreviewButton } from '@/components/preview/feed-preview';
 import { VideoPlayer } from '@/components/app/media-player';
 import { WaveformPlayer } from '@/components/audio/waveform-player';
 import { Badge } from '@/components/ui/badge';
@@ -134,6 +135,7 @@ export function AssetDetail({ id }: { id: string }) {
               <Button variant="outline" size="sm" onClick={() => setDialog('share')}>
                 <Share2 className="size-4" /> Share
               </Button>
+              {(a.type === 'video' || a.type === 'image') && <FeedPreviewButton asset={a} />}
               <Button variant="outline" size="sm" asChild>
                 <a href={`/api/assets/${a.id}/download`}>
                   <Download className="size-4" /> Download

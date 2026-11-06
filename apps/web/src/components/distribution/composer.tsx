@@ -10,6 +10,7 @@ import { AssetSlot } from '@/components/app/asset-picker';
 import { PlatformIcon, PLATFORM_META } from '@/components/app/platform-icon';
 import { ChipList } from '@/components/growth/shared';
 import { LlmPrice } from '@/components/scripts/llm-price';
+import { FeedPreviewButton } from '@/components/preview/feed-preview';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -202,7 +203,20 @@ export function Composer({ initialAssetIds, initialAbGroup, onPublished }: { ini
                     </button>
                   </div>
                 )}
-                <AssetSlot label={abMode ? 'Video or photo' : 'Video or photo'} types={['video', 'image']} value={v.asset} onChange={(a) => setVariants((all) => all.map((x, j) => (j === i ? { ...x, asset: a } : x)))} required />
+                <AssetSlot label="Video or photo" types={['video', 'image']} value={v.asset} onChange={(a) => setVariants((all) => all.map((x, j) => (j === i ? { ...x, asset: a } : x)))} required />
+                {v.asset && (
+                  <FeedPreviewButton
+                    asset={v.asset}
+                    size="xs"
+                    label="Preview in feed"
+                    defaults={{
+                      caption: [v.caption ?? caption, hashtags.map((h) => `#${h}`).join(' ')].filter((x) => x.trim()).join(' '),
+                      handle: selected[0]?.handle ?? selected[0]?.displayName ?? null,
+                      avatarUrl: selected[0]?.avatarUrl ?? null,
+                      platform: selected[0]?.platform ?? null,
+                    }}
+                  />
+                )}
                 {abMode && (
                   <Textarea
                     rows={2}
