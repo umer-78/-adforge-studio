@@ -24,7 +24,8 @@ const GET: [RegExp, Handler][] = [
     const asset = f.assets.find((a) => u.pathname.endsWith(a.id)) ?? f.assets[0]!;
     // The detail shape of GET /api/assets/:id, with nothing analysed yet.
     const meta = { codec: null, audioCodec: null, bitrate: null, hasAudio: asset.type === 'video' ? true : null, analysis: null, score: null, scenes: null, beats: null, bpm: null, loudnessLufs: null, silences: null, licenseIssues: null, sourceUrl: null, reframes: null };
-    return { ...asset, asset, transcript: null, transcriptLanguage: null, segments: null, meta, versions: [], license: null, generation: null, derived: [] };
+    const sizes = asset.type === 'video' || asset.type === 'image' ? { '16:9': { id: asset.id, mode: null, original: true }, '9:16': { id: f.assets[1]?.id ?? asset.id, mode: 'smart', original: false } } : {};
+    return { ...asset, asset, transcript: null, transcriptLanguage: null, segments: null, meta, versions: [], license: null, generation: null, derived: [], sizes };
   }],
   [/^\/api\/generations$/, (u) => {
     const caps = u.searchParams.getAll('capability').flatMap((c) => c.split(','));

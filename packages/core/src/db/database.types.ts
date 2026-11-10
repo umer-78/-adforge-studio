@@ -2207,6 +2207,7 @@ export type Database = {
           ai_generated_label: boolean
           asset_id: string | null
           caption: string
+          carousel_asset_ids: string[]
           created_at: string
           created_by: string | null
           first_comment: string | null
@@ -2232,6 +2233,7 @@ export type Database = {
           ai_generated_label?: boolean
           asset_id?: string | null
           caption?: string
+          carousel_asset_ids?: string[]
           created_at?: string
           created_by?: string | null
           first_comment?: string | null
@@ -2257,6 +2259,7 @@ export type Database = {
           ai_generated_label?: boolean
           asset_id?: string | null
           caption?: string
+          carousel_asset_ids?: string[]
           created_at?: string
           created_by?: string | null
           first_comment?: string | null

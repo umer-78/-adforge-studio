@@ -8,6 +8,8 @@ import {
   SIGNED_URL_TTL,
   SOCIAL_PLATFORMS,
   storageKeys,
+  textIssues,
+  validateCarousel,
   validateForPlatform,
   type AssetRow,
   type PostRow,
@@ -84,6 +86,24 @@ async function resolveAsset(ctx: JobContext, post: PostRow): Promise<AssetRow | 
   return asset;
 }
 
+/** Every file of a carousel post in order, or null for a single-file post. */
+async function resolveCarousel(ctx: JobContext, post: PostRow): Promise<AssetRow[] | { wait: string } | null> {
+  const ids = post.carousel_asset_ids ?? [];
+  if (ids.length < 2) return null;
+  const { data, error } = await ctx.sb.from('assets').select('*').in('id', ids).eq('workspace_id', post.workspace_id);
+  if (error) throw new Error(`Could not load the carousel: ${error.message}`);
+  const byId = new Map((data ?? []).map((a) => [a.id, a]));
+  const items: AssetRow[] = [];
+  for (const [i, id] of ids.entries()) {
+    const a = byId.get(id);
+    if (!a || a.deleted_at) throw new PermanentError(`File ${i + 1} of the carousel was deleted.`);
+    if (a.status === 'failed') throw new PermanentError(`File ${i + 1} of the carousel could not be processed.`);
+    if (a.status !== 'ready') return { wait: 'Waiting for the carousel files to finish processing' };
+    items.push(a);
+  }
+  return items;
+}
+
 /** H.264 or HEVC video with AAC sound (or none) in MP4 or MOV: what every platform takes as it is. */
 function publishReady(asset: AssetRow, meta: Record<string, unknown>): boolean {
   if (!/^video\/(mp4|quicktime)$/.test(asset.mime_type)) return false;
@@ -93,17 +113,13 @@ function publishReady(asset: AssetRow, meta: Record<string, unknown>): boolean {
   return meta.hasAudio === false || !audio || audio === 'aac';
 }
 
-async function buildContext(
-  ctx: JobContext,
-  input: { post: PostRow; target: PostTargetRow; account: SocialAccountRow; asset: AssetRow; platform: SocialPlatform; accessToken: string; withFile: boolean },
-): Promise<social.PublishContext> {
-  const { post, target, account, asset, platform } = input;
-  const spec = PLATFORM_SPECS[platform];
+/** One file made ready for a network: publish-ready MP4 or JPEG where needed, a signed URL, and a local copy for networks that take the bytes. */
+async function prepareMedia(ctx: JobContext, input: { asset: AssetRow; platform: SocialPlatform; account: SocialAccountRow; withFile: boolean; slot: string }): Promise<social.PublishMedia> {
+  const { asset, platform, account } = input;
   const meta = isRecord(asset.meta) ? asset.meta : {};
-  const options: Record<string, unknown> = { ...userOptions(target), idempotencyKey: target.id };
   const driver = storage(asset.storage_driver);
   const isVideo = asset.type === 'video';
-  if (asset.type !== 'video' && asset.type !== 'image') throw new PermanentError(`${spec.label} needs a video or an image.`);
+  if (asset.type !== 'video' && asset.type !== 'image') throw new PermanentError(`${PLATFORM_SPECS[platform].label} needs a video or an image.`);
 
   let url = await driver.signedReadUrl(asset.storage_key, SIGNED_URL_TTL.publish);
   let contentType = asset.mime_type;
@@ -116,7 +132,7 @@ async function buildContext(
     const key = storageKeys.derived(asset.workspace_id, asset.id, name);
     let head = await driver.head(key);
     if (!head || pushesFile) {
-      const local = path.join(await ctx.tmp(), 'publish.mp4');
+      const local = path.join(await ctx.tmp(), `${input.slot}.mp4`);
       if (head) await driver.downloadToFile(key, local);
       else {
         const original = await downloadAsset(ctx, asset);
@@ -133,7 +149,7 @@ async function buildContext(
   if ((pushesFile && !filePath) || needsJpeg) {
     filePath = await downloadAsset(ctx, asset);
     if (needsJpeg) {
-      const jpg = path.join(await ctx.tmp(), 'publish.jpg');
+      const jpg = path.join(await ctx.tmp(), `${input.slot}.jpg`);
       await toJpeg(filePath, jpg, 1440, ctx.signal);
       const derived = await putDerived(asset, 'publish.jpg', jpg, 'image/jpeg');
       url = await driver.signedReadUrl(derived.key, SIGNED_URL_TTL.publish);
@@ -142,15 +158,34 @@ async function buildContext(
       sizeBytes = derived.bytes;
     }
   }
+  return { kind: isVideo ? 'video' : 'image', url, filePath, sizeBytes, contentType, durationS: asset.duration_s, width: asset.width, height: asset.height, coverUrl: null };
+}
 
-  let coverUrl: string | null = null;
+async function buildContext(
+  ctx: JobContext,
+  input: { post: PostRow; target: PostTargetRow; account: SocialAccountRow; asset: AssetRow; items: AssetRow[] | null; platform: SocialPlatform; accessToken: string; withFile: boolean },
+): Promise<social.PublishContext> {
+  const { post, target, account, asset, platform } = input;
+  const spec = PLATFORM_SPECS[platform];
+  const meta = isRecord(asset.meta) ? asset.meta : {};
+  const options: Record<string, unknown> = { ...userOptions(target), idempotencyKey: target.id };
+  const media = await prepareMedia(ctx, { asset, platform, account, withFile: input.withFile, slot: 'publish' });
+
   if (typeof options.coverAssetId === 'string') {
     const { data: cover } = await ctx.sb.from('assets').select('storage_driver, storage_key, type').eq('id', options.coverAssetId).eq('workspace_id', post.workspace_id).maybeSingle();
-    if (cover?.type === 'image') coverUrl = await storage(cover.storage_driver).signedReadUrl(cover.storage_key, SIGNED_URL_TTL.publish);
+    if (cover?.type === 'image') media.coverUrl = await storage(cover.storage_driver).signedReadUrl(cover.storage_key, SIGNED_URL_TTL.publish);
   }
-  if (!coverUrl && isVideo && asset.thumbnail_key) coverUrl = await driver.signedReadUrl(asset.thumbnail_key, SIGNED_URL_TTL.publish);
+  if (!media.coverUrl && asset.type === 'video' && asset.thumbnail_key) media.coverUrl = await storage(asset.storage_driver).signedReadUrl(asset.thumbnail_key, SIGNED_URL_TTL.publish);
 
-  const aiGenerated = post.ai_generated_label || asset.is_ai_generated;
+  let items: social.PublishMedia[] | undefined;
+  if (input.items) {
+    items = [];
+    for (const [i, a] of input.items.entries()) {
+      items.push(i === 0 && a.id === asset.id ? media : await prepareMedia(ctx, { asset: a, platform, account, withFile: input.withFile, slot: `publish-${i + 1}` }));
+    }
+  }
+
+  const aiGenerated = post.ai_generated_label || asset.is_ai_generated || !!input.items?.some((a) => a.is_ai_generated);
   let caption = target.caption_override ?? post.caption;
   // Without a native disclosure flag or a burned-in label, say it in the caption.
   if (post.ai_generated_label && !spec.aiDisclosure && meta.aiLabelBurnedIn !== true && !caption.includes(AI_LABEL_TEXT)) caption = `${caption.trim()}\n\n${AI_LABEL_TEXT}`.trim();
@@ -159,7 +194,8 @@ async function buildContext(
   return {
     accessToken: input.accessToken,
     account: { externalId: account.external_id, handle: account.handle, meta: isRecord(account.meta) ? account.meta : {} },
-    media: { kind: isVideo ? 'video' : 'image', url, filePath, sizeBytes, contentType, durationS: asset.duration_s, width: asset.width, height: asset.height, coverUrl },
+    media,
+    ...(items ? { items } : {}),
     title: post.title,
     caption: composeCaption(caption, hashtags, spec.captionLimit),
     hashtags,
@@ -203,11 +239,21 @@ export const publishPost: JobHandler<'publish.post'> = {
       return reschedule(30, resolved.wait);
     }
     const asset = resolved;
-    await assertLicensed(ctx.sb, asset);
+    const carousel = await resolveCarousel(ctx, post);
+    if (carousel && 'wait' in carousel) {
+      if (Date.now() - new Date(ctx.job.created_at).getTime() > MAX_RENDER_WAIT_MS) throw new PermanentError('The carousel files were still not ready after 3 hours. Check them and publish again.');
+      await ctx.sb.from('post_targets').update({ status: 'publishing', job_id: ctx.job.id }).eq('id', target.id);
+      return reschedule(30, carousel.wait);
+    }
+    for (const a of carousel ?? [asset]) await assertLicensed(ctx.sb, a);
 
     const caption = target.caption_override ?? post.caption;
     const hashtags = target.hashtags_override ?? post.hashtags;
-    const errors = validateForPlatform(platform, { durationS: asset.duration_s, sizeBytes: asset.size_bytes, width: asset.width, height: asset.height, type: asset.type }, { caption, hashtags, title: post.title }).filter((i) => i.level === 'error');
+    const facts = (a: AssetRow) => ({ durationS: a.duration_s, sizeBytes: a.size_bytes, width: a.width, height: a.height, type: a.type });
+    const issues = carousel
+      ? [...validateCarousel(platform, carousel.map(facts)), ...textIssues(platform, { caption, hashtags, title: post.title })]
+      : validateForPlatform(platform, facts(asset), { caption, hashtags, title: post.title });
+    const errors = issues.filter((i) => i.level === 'error');
     if (errors.length) throw new PermanentError(errors.map((e) => e.message).join(' '), 'platform_rules');
 
     const pending = publishState(target);
@@ -218,7 +264,7 @@ export const publishPost: JobHandler<'publish.post'> = {
         await ctx.sb.from('posts').update({ status: 'publishing' }).eq('id', post.id).in('status', ['draft', 'scheduled', 'failed', 'partially_published']);
       }
       ctx.progress(pending ? 70 : 10, pending ? `Waiting for ${spec.label} to process the upload` : `Uploading to ${spec.label}`);
-      const pctx = await buildContext(ctx, { post, target, account, asset, platform, accessToken, withFile: !pending });
+      const pctx = await buildContext(ctx, { post, target, account, asset, items: carousel, platform, accessToken, withFile: !pending });
       ctx.checkAborted();
 
       let outcome: social.PublishOutcome;

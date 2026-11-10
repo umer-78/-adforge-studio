@@ -7,6 +7,7 @@ export const POST = route({ scope: 'publish', limit: ['posts', 120, 3600] }, asy
   const row = await owned(sb, 'posts', params.id!, caller, 'The post');
   if (!['failed', 'partially_published'].includes(row.status)) throw badRequest('Only failed posts can be retried.');
   if (row.asset_id) await publishableAsset(sb, caller, row.asset_id);
+  for (const id of (row.carousel_asset_ids ?? []).slice(1)) await publishableAsset(sb, caller, id);
   const { data: failed } = await sb.from('post_targets').select('id').eq('post_id', row.id).eq('status', 'failed');
   if (!failed?.length) throw badRequest('No account failed for this post.');
   check(await sb.from('post_targets').update({ status: 'pending', error: null }).in('id', failed.map((t) => t.id)), 'Could not retry');

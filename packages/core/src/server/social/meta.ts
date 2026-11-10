@@ -107,6 +107,16 @@ export const instagramPublisher: Publisher = {
   platform: 'instagram',
   async publish(ctx) {
     const igId = ctx.account.externalId;
+    if (ctx.items && ctx.items.length > 1) {
+      // A carousel: one container per file, then the carousel container once they are all processed.
+      if (ctx.items.some((m) => m.kind === 'image' && !/jpe?g/.test(m.contentType))) throw new PlatformError('instagram', 400, 'Instagram: images must be JPEG.');
+      const children: string[] = [];
+      for (const m of ctx.items) {
+        const child = await metaPost<{ id: string }>(`/${igId}/media`, ctx.accessToken, m.kind === 'video' ? { media_type: 'VIDEO', video_url: m.url, is_carousel_item: true } : { image_url: m.url, is_carousel_item: true });
+        children.push(child.id);
+      }
+      return { status: 'processing', state: { children }, retryAfterS: ctx.items.some((m) => m.kind === 'video') ? 15 : 3 };
+    }
     const isVideo = ctx.media.kind === 'video';
     if (!isVideo && !/jpe?g/.test(ctx.media.contentType)) throw new PlatformError('instagram', 400, 'Instagram: images must be JPEG.');
     const container = await metaPost<{ id: string }>(`/${igId}/media`, ctx.accessToken, {
@@ -118,6 +128,15 @@ export const instagramPublisher: Publisher = {
     return { status: 'processing', state: { containerId: container.id }, retryAfterS: isVideo ? 15 : 3 };
   },
   async check(ctx, state) {
+    if (Array.isArray(state.children)) {
+      const children = state.children.map(String);
+      const statuses = await Promise.all(children.map((id) => metaGet<{ status_code?: string; status?: string }>(`/${id}`, ctx.accessToken, { fields: 'status_code,status' })));
+      const bad = statuses.find((s) => s.status_code === 'ERROR' || s.status_code === 'EXPIRED');
+      if (bad) throw new PlatformError('instagram', 422, `Instagram could not process a file in the carousel: ${bad.status ?? bad.status_code}.`);
+      if (statuses.some((s) => s.status_code !== 'FINISHED')) return { status: 'processing', state, retryAfterS: 15 };
+      const carousel = await metaPost<{ id: string }>(`/${ctx.account.externalId}/media`, ctx.accessToken, { media_type: 'CAROUSEL', children: children.join(','), caption: ctx.caption.slice(0, 2200) });
+      return { status: 'processing', state: { containerId: carousel.id }, retryAfterS: 3 };
+    }
     const containerId = String(state.containerId);
     const status = await metaGet<{ status_code?: string; status?: string }>(`/${containerId}`, ctx.accessToken, { fields: 'status_code,status' });
     if (status.status_code === 'ERROR' || status.status_code === 'EXPIRED') {
@@ -170,6 +189,14 @@ export const facebookPublisher: Publisher = {
   platform: 'facebook',
   async publish(ctx) {
     const pageId = ctx.account.externalId;
+    if (ctx.items && ctx.items.length > 1) {
+      // Several photos in one post: upload each unpublished, then attach them to one feed post.
+      if (ctx.items.some((m) => m.kind !== 'image')) throw new PlatformError('facebook', 400, 'Facebook: a post with several files takes photos only.');
+      const ids: string[] = [];
+      for (const m of ctx.items) ids.push((await metaPost<{ id: string }>(`/${pageId}/photos`, ctx.accessToken, { url: m.url, published: false })).id);
+      const post = await metaPost<{ id: string }>(`/${pageId}/feed`, ctx.accessToken, { message: ctx.caption, attached_media: JSON.stringify(ids.map((id) => ({ media_fbid: id }))) });
+      return { status: 'published', externalId: post.id, externalUrl: `https://www.facebook.com/${post.id}` };
+    }
     if (ctx.media.kind === 'image') {
       const res = await metaPost<{ id: string; post_id?: string }>(`/${pageId}/photos`, ctx.accessToken, { url: ctx.media.url, caption: ctx.caption, published: true });
       const postId = res.post_id ?? res.id;
