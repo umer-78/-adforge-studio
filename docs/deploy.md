@@ -40,6 +40,9 @@ directly and build ZIP downloads from it, so its CORS rules must allow the websi
    - `NEXT_PUBLIC_APP_URL` only for a custom domain: without it the site uses its Vercel address
    - `APP_ENCRYPTION_KEY` (see [the encryption key](#the-encryption-key))
    - `APP_OWNER_EMAILS` if only you should be able to sign in
+   - `OPEN_ACCESS=1` to turn sign-in off for now: every visitor opens the studio as the first
+     `APP_OWNER_EMAILS` account. Anyone with the link can then use it, so keep the link private,
+     and delete the variable (then redeploy) to require sign-in again.
    - `PEXELS_API_KEY` and `PIXABAY_API_KEY` (both free) to add stock photos and videos to the
      Free media page. Free music, sounds and photos from Openverse work without a key.
 4. Deploy. Then put the site's address in the Supabase URL settings (step 1.3) and in the

@@ -34,6 +34,7 @@ export const me: Me = {
   },
   providers: { anthropic: true, openai: true, fal: true, replicate: true, agnes: false, elevenlabs: true, ayrshare: false },
   budget: { spentUsd: 23.84, budgetUsd: 100, remainingUsd: 76.16, hardStop: true },
+  openAccess: false,
 };
 
 interface MediaSeed {

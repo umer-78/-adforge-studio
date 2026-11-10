@@ -50,14 +50,18 @@ export function UserMenu() {
             <Monitor className="mr-1" /> System
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <form action="/auth/signout" method="post">
-          <DropdownMenuItem asChild>
-            <button type="submit" className="w-full">
-              <LogOut /> Sign out
-            </button>
-          </DropdownMenuItem>
-        </form>
+        {!data?.openAccess && (
+          <>
+            <DropdownMenuSeparator />
+            <form action="/auth/signout" method="post">
+              <DropdownMenuItem asChild>
+                <button type="submit" className="w-full">
+                  <LogOut /> Sign out
+                </button>
+              </DropdownMenuItem>
+            </form>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
