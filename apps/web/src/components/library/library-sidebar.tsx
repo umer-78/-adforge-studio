@@ -75,7 +75,7 @@ export function LibrarySidebar({ value, onChange }: { value: LibraryFilter; onCh
         {(projects.data ?? []).map((p) => (
           <Row key={p.id} active={value.projectId === p.id && !value.folderId} onClick={() => onChange({ projectId: p.id })} color={p.color ?? undefined} label={p.name} onRename={() => setDialog({ kind: 'rename-project', id: p.id, name: p.name })} onRemove={() => remove.mutate({ kind: 'project', id: p.id })} removeLabel="Archive" />
         ))}
-        {!projects.data?.length && <p className="px-2.5 text-xs text-muted-foreground">Group a campaign's files together.</p>}
+        {!projects.data?.length && <p className="px-2.5 text-xs text-muted-foreground">Group a campaign&apos;s files together.</p>}
       </Section>
       <Section title={value.projectId ? 'Folders in project' : 'Folders'} onAdd={() => setDialog({ kind: 'folder' })}>
         {visibleFolders.map((f) => (

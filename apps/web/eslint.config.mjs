@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Google's Draco decoder, shipped as-is for the 3D viewer: not our code to lint.
+    "public/draco/**",
   ]),
 ]);
 

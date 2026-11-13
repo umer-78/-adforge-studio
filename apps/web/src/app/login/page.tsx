@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Suspense } from 'react';
 import { Logo } from '@/components/app/logo';
 import { LoopVideo } from '@/components/marketing/loop-video';
@@ -20,9 +21,9 @@ export default function LoginPage() {
         </div>
       </aside>
       <section className="flex min-h-dvh flex-col px-4 py-8 sm:px-10">
-        <a href="/" className="self-start">
+        <Link href="/" className="self-start">
           <Logo />
-        </a>
+        </Link>
         <div className="flex flex-1 items-center justify-center py-10">
           <Suspense fallback={<Skeleton className="h-96 w-full max-w-sm rounded-2xl" />}>
             <LoginForm />

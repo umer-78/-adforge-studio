@@ -24,7 +24,7 @@ export function CompetitorsPanel({ onShowAds }: { onShowAds: (id: string) => voi
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-muted-foreground">Each competitor's ads are checked every day. New ads land in your swipe file, stopped ones are marked, and run time keeps counting.</p>
+        <p className="max-w-2xl text-sm text-muted-foreground">Each competitor&apos;s ads are checked every day. New ads land in your swipe file, stopped ones are marked, and run time keeps counting.</p>
         <Button size="sm" onClick={() => setEditing('new')}>
           <Plus className="size-4" /> Track a competitor
         </Button>
@@ -193,7 +193,7 @@ function CompetitorDialog({ value, onClose }: { value: CompetitorView | 'new' | 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isNew ? 'Track a competitor' : `Edit ${current?.name ?? ''}`}</DialogTitle>
-          <DialogDescription>Ads are read from Meta's Ad Library for the countries you list.</DialogDescription>
+          <DialogDescription>Ads are read from Meta&apos;s Ad Library for the countries you list.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <Field label="Name">
