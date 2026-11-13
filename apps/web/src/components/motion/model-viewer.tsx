@@ -40,7 +40,6 @@ interface TurntableState {
   /** Set while exporting: rotation follows the clock so every frame is exact. */
   exporting: boolean;
   lengthS: number;
-  baseAngle: number;
   autoRotate: boolean;
   speed: number;
 }
@@ -48,16 +47,18 @@ interface TurntableState {
 /** Spins its children: freely in the preview, exactly one turn per clip while exporting. */
 function Turntable({ state, children }: { state: RefObject<TurntableState>; children: ReactNode }) {
   const group = useRef<THREE.Group>(null);
+  // the angle the free spin had reached, so an export starts from where the preview stood
+  const baseAngle = useRef(0);
   useFrame((root, delta) => {
     const g = group.current;
     const s = state.current;
     if (!g || !s) return;
     if (s.exporting) {
-      g.rotation.y = s.baseAngle + (Math.PI * 2 * root.clock.elapsedTime) / s.lengthS;
+      g.rotation.y = baseAngle.current + (Math.PI * 2 * root.clock.elapsedTime) / s.lengthS;
       return;
     }
     if (s.autoRotate) g.rotation.y += Math.min(delta, 0.1) * s.speed;
-    s.baseAngle = g.rotation.y;
+    baseAngle.current = g.rotation.y;
   });
   return <group ref={group}>{children}</group>;
 }
@@ -277,9 +278,11 @@ export function ModelViewer({ initial }: { initial: AssetView | null }) {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<AssetView | null>(null);
   const store = useRef<(() => RootState) | null>(null);
-  const turntable = useRef<TurntableState>({ exporting: false, lengthS: 6, baseAngle: 0, autoRotate: true, speed: 0.6 });
-  turntable.current.autoRotate = autoRotate && !busy;
-  turntable.current.speed = speed;
+  const turntable = useRef<TurntableState>({ exporting: false, lengthS: 6, autoRotate: true, speed: 0.6 });
+  useEffect(() => {
+    turntable.current.autoRotate = autoRotate && !busy;
+    turntable.current.speed = speed;
+  });
   useEffect(() => {
     if (initial) setModel(initial);
     // Only a different linked model replaces the one picked here.
@@ -333,7 +336,7 @@ export function ModelViewer({ initial }: { initial: AssetView | null }) {
     }
   };
 
-  const ColorRow = ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
+  const colorRow = ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
     <Field label={label}>
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border" style={{ background: value }}>
@@ -354,8 +357,8 @@ export function ModelViewer({ initial }: { initial: AssetView | null }) {
         <Field label="Set">
           <Segmented value={scene} onChange={setScene} options={SCENES} />
         </Field>
-        {!dark && <ColorRow label="Background" value={background} onChange={setBackground} />}
-        <ColorRow label={scene === 'podium' ? 'Podium' : 'Accent light'} value={accent} onChange={setAccent} />
+        {!dark && colorRow({ label: 'Background', value: background, onChange: setBackground })}
+        {colorRow({ label: scene === 'podium' ? 'Podium' : 'Accent light', value: accent, onChange: setAccent })}
         <label className="flex items-center justify-between gap-3 text-sm">
           <span className="font-medium">Spin in preview</span>
           <Switch checked={autoRotate} onCheckedChange={setAutoRotate} />

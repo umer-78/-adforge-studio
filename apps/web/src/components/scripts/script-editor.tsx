@@ -106,7 +106,7 @@ export function ScriptEditor({ id }: { id: string }) {
   }, [d]);
 
   const docRef = useRef<Doc | null>(doc);
-  docRef.current = doc;
+  useEffect(() => { docRef.current = doc; });
   const rev = useRef(0);
   const savedRev = useRef(0);
   const inflight = useRef<Promise<void> | null>(null);

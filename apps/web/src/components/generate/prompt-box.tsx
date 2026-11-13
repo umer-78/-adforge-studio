@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { BookOpen, Mic, Square, WandSparkles } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { usedReferences, type EnhancedPrompt } from '@adforge/core';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +61,7 @@ export function PromptBox({
   const [mode, setMode] = useState<'ad' | 'cinematic'>('ad');
   const committed = useRef('');
   const latest = useRef(value);
-  latest.current = value;
+  useEffect(() => { latest.current = value; });
 
   const dictation = useDictation((text, final) => {
     const sep = committed.current && !/\s$/.test(committed.current) ? ' ' : '';

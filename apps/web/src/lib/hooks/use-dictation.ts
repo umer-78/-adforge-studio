@@ -33,7 +33,7 @@ export function useDictation(onText: (text: string, final: boolean) => void, lan
   const rec = useRef<SpeechRecognitionLike | null>(null);
   const media = useRef<{ recorder: MediaRecorder; stream: MediaStream; startedAt: number } | null>(null);
   const cb = useRef(onText);
-  cb.current = onText;
+  useEffect(() => { cb.current = onText; });
 
   const stop = useCallback(() => {
     rec.current?.stop();

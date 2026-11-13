@@ -42,7 +42,7 @@ export function ParallaxTool() {
   const renderer = useRef<ParallaxRenderer | null>(null);
   const [loaded, setLoaded] = useState(false);
   const settings = useRef({ motion, strength, focus, duration });
-  settings.current = { motion, strength, focus, duration };
+  useEffect(() => { settings.current = { motion, strength, focus, duration }; });
   const recordingRef = useRef(false);
 
   const depth = useQuery({

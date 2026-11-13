@@ -94,12 +94,11 @@ export function TimelinePanel() {
   const duration = timelineOps.timelineDuration(tl);
 
   const rows = useMemo(() => {
-    let top = 0;
-    return tl.tracks.map((t) => {
-      const row = { id: t.id, top, height: TRACK_HEIGHT[t.kind] };
-      top += row.height;
-      return row;
-    });
+    return tl.tracks.map((t, i) => ({
+      id: t.id,
+      top: tl.tracks.slice(0, i).reduce((sum, above) => sum + TRACK_HEIGHT[above.kind], 0),
+      height: TRACK_HEIGHT[t.kind],
+    }));
   }, [tl.tracks]);
   const rowsHeight = rows.reduce((sum, r) => sum + r.height, 0);
   const contentW = Math.max(view.width - HEADER_W, (duration + tl.fps * 10) * px);
@@ -398,7 +397,7 @@ function PlayheadLine({ scroller }: { scroller: React.RefObject<HTMLDivElement |
     if (!el || !playing) return;
     const x = frame * g.px;
     const visible = el.clientWidth - HEADER_W;
-    if (x < el.scrollLeft || x > el.scrollLeft + visible - 24) el.scrollLeft = Math.max(0, x - 48);
+    if (x < el.scrollLeft || x > el.scrollLeft + visible - 24) el.scrollTo({ left: Math.max(0, x - 48) });
   }, [frame, playing, g.px, scroller]);
   return <div className="pointer-events-none absolute top-0 bottom-0 z-[5] w-px bg-rose-400" style={{ left: HEADER_W + frame * g.px }} />;
 }
