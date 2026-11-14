@@ -24,6 +24,7 @@ import { useOpenInEditor } from '@/lib/hooks/use-open-in-editor';
 import type { AssetView } from '@/lib/types';
 import { startUploads } from '@/lib/upload';
 import { cn } from '@/lib/utils';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 useGLTF.setDecoderPath('/draco/');
 
@@ -283,11 +284,10 @@ export function ModelViewer({ initial }: { initial: AssetView | null }) {
     turntable.current.autoRotate = autoRotate && !busy;
     turntable.current.speed = speed;
   });
-  useEffect(() => {
+  useOnChange([initial?.id], () => {
     if (initial) setModel(initial);
     // Only a different linked model replaces the one picked here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial?.id]);
+  });
 
   const dark = scene === 'spotlight';
   const bg = dark ? '#060609' : background;

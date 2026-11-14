@@ -25,6 +25,7 @@ import { LibrarySidebar, type LibraryFilter } from './library-sidebar';
 import { MoveDialog, TagDialog, useBulk } from './organize-dialogs';
 import { ShareDialog } from './share-dialog';
 import { useProjects } from './use-library';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 type TypeFilter = 'all' | 'video' | 'image' | 'audio' | 'model3d';
 
@@ -66,7 +67,7 @@ export function LibraryView({ trash = false }: { trash?: boolean }) {
     refetchInterval: (qq) => (qq.state.data?.pages.some((p) => p.items.some((a) => a.status === 'processing' || a.status === 'uploading')) ? 5000 : false),
   });
   const items = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data]);
-  useEffect(() => setSelected(new Set()), [sp]);
+  useOnChange([sp], () => { setSelected(new Set()); });
 
   useEffect(() => {
     const el = sentinel.current;

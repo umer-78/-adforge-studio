@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layers, Plus, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatUsd, type Capability } from '@adforge/core';
 import { AssetThumb } from '@/components/app/asset-card';
@@ -18,6 +18,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import type { AssetView } from '@/lib/types';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const OPS: { value: Capability; label: string }[] = [
   { value: 'remove_bg_image', label: 'Remove background' },
@@ -37,10 +38,10 @@ export function BatchEditTool() {
   const [done, setDone] = useState(0);
   const { models, model, modelId, setModelId } = useStudioModel(op);
   const [settings, setSettings] = useState<Settings>({});
-  useEffect(() => {
+  useOnChange([model], () => {
     if (model) setSettings((prev) => normalizeSettings(model, prev));
-  }, [model]);
-  useEffect(() => setQuote(null), [op, photos, prompt, settings, modelId]);
+  });
+  useOnChange([op, photos, prompt, settings, modelId], () => { setQuote(null); });
 
   const paramsFor = (a: AssetView) => ({ ...settings, prompt: op === 'i2i' ? prompt : '', imageAssetId: a.id });
 

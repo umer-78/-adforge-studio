@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Capability } from '@adforge/core';
 import { pickDefaultModel, useModels } from '@/components/generate/use-studio-model';
 import { cn } from '@/lib/utils';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 /** The best usable model for a capability, kept when it still fits. */
 export function useCapabilityModel(capability: Capability) {
   const models = useModels(capability);
   const [modelId, setModelId] = useState<string>();
-  useEffect(() => {
+  useOnChange([models.data, modelId, capability], () => {
     if (models.data && (!modelId || !models.data.some((m) => m.id === modelId))) setModelId(pickDefaultModel(models.data, capability));
-  }, [models.data, modelId, capability]);
+  });
   return { models: models.data ?? [], model: models.data?.find((m) => m.id === modelId), modelId, setModelId };
 }
 

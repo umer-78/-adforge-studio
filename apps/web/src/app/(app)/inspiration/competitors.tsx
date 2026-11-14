@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CircleAlert, ExternalLink, Pause, Pencil, Play, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { hostOf } from '@/components/growth/shared';
 import { useCompetitors } from '@/components/growth/use-growth';
@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import type { CompetitorView, JobView } from '@/lib/types';
 import { timeAgo } from '@/lib/utils';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 /** Competitors whose ads are pulled from the Ad Library every day. */
 export function CompetitorsPanel({ onShowAds }: { onShowAds: (id: string) => void }) {
@@ -158,7 +159,7 @@ function CompetitorDialog({ value, onClose }: { value: CompetitorView | 'new' | 
   const isNew = value === 'new';
   const current = value && value !== 'new' ? value : null;
   const [f, setF] = useState({ name: '', website: '', metaPageId: '', tiktokHandle: '', countries: 'DE,FR,IE', notes: '' });
-  useEffect(() => {
+  useOnChange([value], () => {
     if (value)
       setF({
         name: current?.name ?? '',
@@ -168,8 +169,7 @@ function CompetitorDialog({ value, onClose }: { value: CompetitorView | 'new' | 
         countries: (current?.countries ?? ['DE', 'FR', 'IE']).join(','),
         notes: current?.notes ?? '',
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  });
   const save = useMutation({
     mutationFn: () => {
       const countries = f.countries.toUpperCase().replace(/\s+/g, '').split(',').filter(Boolean);

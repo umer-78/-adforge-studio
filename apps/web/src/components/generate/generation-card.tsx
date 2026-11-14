@@ -17,6 +17,7 @@ import { toAspect, useOpenInEditor } from '@/lib/hooks/use-open-in-editor';
 import type { AssetView, GenerationView } from '@/lib/types';
 import { cn, timeAgo } from '@/lib/utils';
 import { CostSummary, formatEta, type EstimateResponse } from './cost-estimate';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const NEEDS_CONSENT = new Set(['avatar', 'lipsync', 'dub']);
 const ACTIVE = new Set(['queued', 'running']);
@@ -220,10 +221,13 @@ function RegenerateDialog({ gen, open, onOpenChange }: { gen: GenerationView; op
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const params = useRef<Record<string, unknown>>({});
-  useEffect(() => {
+  useOnChange([open, gen], () => {
     if (!open) return;
     setEstimate(null);
     setError(null);
+  });
+  useEffect(() => {
+    if (!open) return;
     params.current = { ...gen.params, seed: Math.floor(Math.random() * 2_000_000_000) };
     api
       .post<EstimateResponse>('/generate/estimate', { modelId: gen.model, params: params.current, variants: 1 })

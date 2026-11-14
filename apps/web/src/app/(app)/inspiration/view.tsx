@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Radar, Search, Star } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AssetSlot } from '@/components/app/asset-picker';
 import { PlatformIcon, PLATFORM_META } from '@/components/app/platform-icon';
@@ -24,6 +24,7 @@ import type { AssetView, InspirationAdView } from '@/lib/types';
 import { cn, qs } from '@/lib/utils';
 import { CompetitorsPanel } from './competitors';
 import { LibrarySearch } from './library-search';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 type Tab = 'saved' | 'library' | 'competitors';
 const PLATFORMS = ['meta', 'tiktok', 'youtube', 'instagram', 'x', 'linkedin', 'pinterest', 'other'] as const;
@@ -69,7 +70,7 @@ function SwipeFile({ competitorId, onCompetitor, onOpen }: { competitorId?: stri
   const [adding, setAdding] = useState(false);
   const filters: InspirationFilters = { q: dq || undefined, platform: platform === 'all' ? undefined : platform, status: status === 'all' ? undefined : status, competitorId, favorites, sort };
   const key = JSON.stringify(filters);
-  useEffect(() => setPages(1), [key]);
+  useOnChange([key], () => { setPages(1); });
 
   return (
     <div className="space-y-4">
@@ -190,14 +191,13 @@ function SaveAdDialog({ open, onOpenChange, onSaved }: { open: boolean; onOpenCh
   const [f, setF] = useState(empty);
   const [asset, setAsset] = useState<AssetView | null>(null);
   const [tags, setTags] = useState<string[]>([]);
-  useEffect(() => {
+  useOnChange([open], () => {
     if (open) {
       setF(empty);
       setAsset(null);
       setTags([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  });
   const save = useMutation({
     mutationFn: () => {
       const url = f.sourceUrl.trim();

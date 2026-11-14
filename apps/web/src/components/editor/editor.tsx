@@ -46,6 +46,7 @@ import { useEditor } from './store';
 import { TimelinePanel, timelineView } from './timeline';
 import { isEditableTarget } from './utils';
 import { ConflictDialog, HistoryDialog } from './versions';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 /** Signed URLs last an hour; refreshing well before that keeps long sessions playing. */
 const URL_REFRESH_MS = 40 * 60_000;
@@ -101,6 +102,8 @@ function usePaneSizes() {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('af:editor-panes') ?? 'null') as Partial<Record<PaneKey, number>> | null;
+      // Saved pane sizes can only be read after hydration, or the first client render would not match the server's.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (saved) setSizes((s) => ({ ...s, ...saved }));
     } catch {
       // Private mode or blocked storage: keep the defaults.
@@ -381,9 +384,9 @@ function SaveTemplateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [slots, setSlots] = useState(true);
-  useEffect(() => {
+  useOnChange([open, editName], () => {
     if (open) setName(editName);
-  }, [open, editName]);
+  });
   const save = useMutation({
     mutationFn: async () => {
       // Templates are made from the saved edit, so save what is on screen first.

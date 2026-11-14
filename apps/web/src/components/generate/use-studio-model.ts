@@ -1,10 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Capability } from '@adforge/core';
 import { api } from '@/lib/api-client';
 import type { ModelView } from '@/lib/types';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 /** Remembers the last model used per capability in this browser. */
 export function rememberModel(cap: string, id?: string): string | null {
@@ -30,8 +31,8 @@ export function useModels(capability: Capability) {
 export function useStudioModel(capability: Capability) {
   const models = useModels(capability);
   const [modelId, setModelId] = useState<string>();
-  useEffect(() => {
+  useOnChange([models.data, modelId, capability], () => {
     if (models.data && (!modelId || !models.data.some((m) => m.id === modelId))) setModelId(pickDefaultModel(models.data, capability));
-  }, [models.data, modelId, capability]);
+  });
   return { models: models.data ?? [], loading: models.isLoading, model: models.data?.find((m) => m.id === modelId), modelId, setModelId };
 }

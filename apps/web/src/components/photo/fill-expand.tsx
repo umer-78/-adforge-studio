@@ -20,6 +20,7 @@ import { api, errorMessage } from '@/lib/api-client';
 import { aspectNumber, canvasBlob, fitWithin, loadImage } from '@/lib/canvas';
 import type { AssetView } from '@/lib/types';
 import { uploadAndWait } from '@/lib/upload';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 type Stroke = { r: number; erase: boolean; points: [number, number][] };
 const MAGENTA = '#FF00FF';
@@ -44,13 +45,15 @@ export function FillExpandTool() {
   const drawing = useRef<Stroke | null>(null);
   const { models, model, modelId, setModelId } = useStudioModel('i2i');
   const [settings, setSettings] = useState<Settings>({});
-  useEffect(() => {
+  useOnChange([model], () => {
     if (model) setSettings((prev) => normalizeSettings(model, prev));
-  }, [model]);
+  });
 
-  useEffect(() => {
+  useOnChange([image?.url], () => {
     setImg(null);
     setStrokes([]);
+  });
+  useEffect(() => {
     if (!image?.url) return;
     let live = true;
     loadImage(image.url)

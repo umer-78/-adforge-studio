@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bot, ChevronDown, Link2, Mic, Package, Play, Square } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { formatUsd } from '@adforge/core';
 import { PlatformIcon } from '@/components/app/platform-icon';
@@ -30,6 +30,7 @@ import { useDictation } from '@/lib/hooks/use-dictation';
 import { useMe } from '@/lib/hooks/use-me';
 import type { AgentRunView } from '@/lib/types';
 import { cn, timeAgo } from '@/lib/utils';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const ASPECTS = ['9:16', '1:1', '4:5', '16:9'] as const;
 
@@ -120,9 +121,9 @@ function NewRunForm({ className }: { className?: string }) {
   const modelId = videoModelId ?? fallbackModel;
   const model = list.find((m) => m.id === modelId);
   const product = products.data?.find((p) => p.id === productId);
-  useEffect(() => {
+  useOnChange([initialProduct, products.data], () => {
     if (initialProduct && products.data && !products.data.some((p) => p.id === initialProduct)) setProductId('none');
-  }, [initialProduct, products.data]);
+  });
 
   const plan = usePlanEstimate({ durationS, aspect, style, videoModelId: modelId, productId: source === 'product' && productId !== 'none' ? productId : undefined });
   const accounts = (setup.data?.accounts ?? []).filter((a) => platforms.includes(a.platform));

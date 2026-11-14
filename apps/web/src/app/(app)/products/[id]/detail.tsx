@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Copy, ExternalLink, ImagePlus, PenLine, RefreshCw, Save, Star, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LANGUAGES } from '@adforge/core';
 import { AssetPicker } from '@/components/app/asset-picker';
@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import type { AssetView, ProductCopy, ProductView, ScriptView } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const PLATFORMS = [
   { value: 'tiktok', label: 'TikTok' },
@@ -74,12 +75,12 @@ function Loaded({ product: p }: { product: ProductView }) {
   const [pickImages, setPickImages] = useState(false);
   const [pickLogo, setPickLogo] = useState(false);
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(toDraft(base)), [draft, base]);
-  useEffect(() => {
+  useOnChange([p, base.updatedAt, dirty], () => {
     if (p.updatedAt !== base.updatedAt && !dirty) {
       setBase(p);
       setDraft(toDraft(p));
     }
-  }, [p, base.updatedAt, dirty]);
+  });
 
   const setCopy = <K extends keyof ProductCopy>(k: K, v: ProductCopy[K]) => setDraft((d) => ({ ...d, copy: { ...d.copy, [k]: v } }));
   const refresh = (next: ProductView) => {

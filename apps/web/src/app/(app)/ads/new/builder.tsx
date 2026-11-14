@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ImagePlus, Rocket, Save, ShieldCheck, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AD_CTAS, AD_OBJECTIVES } from '@adforge/core';
 import { AssetPicker } from '@/components/app/asset-picker';
@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api-client';
 import type { AssetView, CampaignView, VariantBatchView } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 interface Creative {
   asset: AssetView;
@@ -57,20 +58,20 @@ export function CampaignBuilder() {
   const [picking, setPicking] = useState(false);
   const [mode, setMode] = useState<'launch' | 'draft'>('launch');
 
-  useEffect(() => {
+  useOnChange([accounts, accountId], () => {
     if (!accountId && accounts[0]) setAccountId(accounts[0].id);
-  }, [accounts, accountId]);
-  useEffect(() => {
+  });
+  useOnChange([batch.data], () => {
     const b = batch.data;
     if (!b) return;
     setName((n) => n || `${b.name} test`.slice(0, 200));
     setCreatives(
       b.variants.flatMap((v) => (v.status === 'done' && v.asset ? [{ asset: v.asset, headline: '', primaryText: '', variantLabel: v.label.slice(0, 20) }] : [])).slice(0, 10),
     );
-  }, [batch.data]);
-  useEffect(() => {
+  });
+  useOnChange([single.data], () => {
     if (single.data) setCreatives((c) => (c.length ? c : [{ asset: single.data, headline: '', primaryText: '', variantLabel: 'A' }]));
-  }, [single.data]);
+  });
 
   const account = accounts.find((a) => a.id === accountId);
   const platform = account?.platform;

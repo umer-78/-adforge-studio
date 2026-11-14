@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ImagePlus, Pencil, Plus, Trash2, UserRound, X } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { AssetThumb } from '@/components/app/asset-card';
 import { AssetPicker } from '@/components/app/asset-picker';
@@ -18,6 +18,7 @@ import { api, errorMessage } from '@/lib/api-client';
 import type { AssetView, CharacterView } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useCharacters } from './use-scripts';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const COLORS = ['#8B5CF6', '#EC4899', '#F97316', '#10B981', '#0EA5E9', '#EAB308', '#EF4444', '#64748B'];
 const EMOTIONS = ['neutral', 'excited', 'warm', 'confident', 'playful', 'sarcastic', 'serious', 'curious', 'whispers', 'surprised'];
@@ -42,7 +43,7 @@ export function CharacterDialog({ open, onOpenChange, character, onSaved }: { op
   const [color, setColor] = useState<string>(COLORS[0]!);
   const [avatar, setAvatar] = useState<AssetView | null>(null);
   const [picking, setPicking] = useState(false);
-  useEffect(() => {
+  useOnChange([open, character], () => {
     if (!open) return;
     setName(character?.name ?? '');
     setDescription(character?.description ?? '');
@@ -51,7 +52,7 @@ export function CharacterDialog({ open, onOpenChange, character, onSaved }: { op
     setPace(character?.defaultPace ?? 1);
     setColor(character?.color ?? COLORS[Math.floor(Math.random() * COLORS.length)]!);
     setAvatar(character?.avatar ?? null);
-  }, [open, character]);
+  });
   const save = useMutation({
     mutationFn: () => {
       const body = { name: name.trim(), description: description.trim() || null, voiceId, defaultEmotion: emotion.trim() || 'neutral', defaultPace: pace, color, avatarAssetId: avatar?.id ?? null };

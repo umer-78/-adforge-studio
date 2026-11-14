@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { displayName, MUSIC_GENRES, MUSIC_MOODS, SFX_CATEGORIES } from '@adforge/core';
 import { AssetSlot } from '@/components/app/asset-picker';
@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { api, errorMessage } from '@/lib/api-client';
 import type { AssetView } from '@/lib/types';
 import { emptyLicense, LicenseFields, licenseProblems, toLicenseInput, type LicenseDraft } from './license-fields';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const NONE = '__none';
 const pickOptions = (list: readonly string[], none: string) => [{ value: NONE, label: none }, ...list.map((v) => ({ value: v, label: v }))];
@@ -35,7 +36,7 @@ export function AddAudioDialog({ kind, open, onOpenChange }: { kind: 'music' | '
   const [withLicense, setWithLicense] = useState(true);
   const [license, setLicense] = useState<LicenseDraft>(emptyLicense);
 
-  useEffect(() => {
+  useOnChange([open], () => {
     if (!open) return;
     setAsset(null);
     setTitle('');
@@ -46,7 +47,7 @@ export function AddAudioDialog({ kind, open, onOpenChange }: { kind: 'music' | '
     setLogo(false);
     setWithLicense(true);
     setLicense(emptyLicense());
-  }, [open]);
+  });
 
   const covered = !!asset && (!!asset.licenseId || asset.source === 'generated' || (kind === 'sfx' && asset.source === 'recording'));
   const needLicense = !covered || withLicense;
@@ -161,9 +162,9 @@ export function AddAudioDialog({ kind, open, onOpenChange }: { kind: 'music' | '
 export function LicenseDialog({ asset, open, onOpenChange }: { asset: AssetView | null; open: boolean; onOpenChange: (v: boolean) => void }) {
   const qc = useQueryClient();
   const [license, setLicense] = useState<LicenseDraft>(emptyLicense);
-  useEffect(() => {
+  useOnChange([open], () => {
     if (open) setLicense(emptyLicense());
-  }, [open]);
+  });
   const problems = licenseProblems(license);
   const save = useMutation({
     mutationFn: () => api.post('/licenses', { ...toLicenseInput(license), assetIds: [asset!.id] }),

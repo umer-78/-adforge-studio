@@ -1,7 +1,7 @@
 'use client';
 
 import { BookOpen } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { fillRecipe, PROMPT_RECIPES, type AspectRatio, type PromptRecipe } from '@adforge/core';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/misc';
 import { cn } from '@/lib/utils';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 export interface RecipeResult {
   recipe: PromptRecipe;
@@ -24,12 +25,12 @@ export function RecipePicker({ open, onOpenChange, kind, onApply }: { open: bool
   const [category, setCategory] = useState('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
-  useEffect(() => {
+  useOnChange([open, recipes], () => {
     if (open) {
       setSelectedId((id) => (id && recipes.some((r) => r.id === id) ? id : (recipes[0]?.id ?? null)));
       setValues({});
     }
-  }, [open, recipes]);
+  });
   const visible = recipes.filter((r) => category === 'All' || r.category === category);
   const selected = recipes.find((r) => r.id === selectedId) ?? null;
   const preview = selected ? fillRecipe(selected, values) : '';

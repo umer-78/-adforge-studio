@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AudioWaveform, Clapperboard, Download, Ellipsis, ExternalLink, Music, Pencil, Plus, Search, ShieldAlert, Sparkles, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatDuration, MUSIC_GENRES, MUSIC_MOODS } from '@adforge/core';
 import { WaveformPlayer } from '@/components/audio/waveform-player';
@@ -26,6 +26,7 @@ import type { AssetView, MusicView } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AddAudioDialog, LicenseDialog } from './add-audio-dialog';
 import { LICENSE_STATE, useMusic, type MusicFilter } from './use-music';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 /** Every track you can put under an ad: generated ones and licensed ones you added. */
 export function MusicLibrary() {
@@ -110,9 +111,9 @@ function TrackRow({ track: m }: { track: MusicView }) {
   const [findingBeats, setFindingBeats] = useState(false);
   const a = m.asset;
   const state = LICENSE_STATE[m.licenseState];
-  useEffect(() => {
+  useOnChange([m.beats.length], () => {
     if (m.beats.length) setFindingBeats(false);
-  }, [m.beats.length]);
+  });
   const beats = useMutation({
     mutationFn: () => api.post(`/assets/${a!.id}/actions`, { action: 'detect', kind: 'beats' }),
     onSuccess: () => {
@@ -237,7 +238,7 @@ function EditTrackDialog({ track: m, open, onOpenChange }: { track: MusicView; o
   const [bpm, setBpm] = useState(m.bpm ? String(Math.round(m.bpm)) : '');
   const [lyrics, setLyrics] = useState(m.lyrics ?? '');
   const [logo, setLogo] = useState(m.isAudioLogo);
-  useEffect(() => {
+  useOnChange([open, m], () => {
     if (!open) return;
     setTitle(m.title);
     setGenre(m.genre ?? NONE);
@@ -246,7 +247,7 @@ function EditTrackDialog({ track: m, open, onOpenChange }: { track: MusicView; o
     setBpm(m.bpm ? String(Math.round(m.bpm)) : '');
     setLyrics(m.lyrics ?? '');
     setLogo(m.isAudioLogo);
-  }, [open, m]);
+  });
   const bpmValue = bpm.trim() ? Number(bpm) : null;
   const bad = !title.trim() || (bpmValue != null && (!Number.isFinite(bpmValue) || bpmValue < 30 || bpmValue > 300));
   const options = (list: readonly string[], current: string) => [{ value: NONE, label: 'Not set' }, ...[...new Set([...(current !== NONE ? [current] : []), ...list])].map((v) => ({ value: v, label: v }))];

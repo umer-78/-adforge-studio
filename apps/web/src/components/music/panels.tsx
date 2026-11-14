@@ -28,6 +28,7 @@ import type { AssetView, SfxView } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AddAudioDialog, sfxCategoryLabel } from './add-audio-dialog';
 import { LICENSE_STATE, useSfx } from './use-music';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 function Chips({ options, value, onChange }: { options: readonly string[]; value: string | null; onChange: (v: string | null) => void }) {
   return (
@@ -75,10 +76,10 @@ export function MusicPanel({ initialPrompt = '' }: { initialPrompt?: string }) {
   const [takes, setTakes] = useState('1');
   const logo = mode === 'logo';
   const durationS = logo ? Math.min(10, Math.max(3, length)) : length;
-  useEffect(() => {
+  useOnChange([logo, length], () => {
     if (logo && length > 10) setLength(5);
     if (!logo && length < 6) setLength(15);
-  }, [logo, length]);
+  });
 
   const description = [
     logo ? 'A short, memorable sonic logo that ends an ad: a clear melodic motif that resolves, crisp and brandable' : null,

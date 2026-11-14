@@ -4,7 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { Clapperboard, Copy, Ellipsis, FileText, Files, LayoutTemplate, Pencil, Plus, Search, Square, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { ASPECT_SIZES, formatDuration, type AspectRatio } from '@adforge/core';
 import { AssetPicker } from '@/components/app/asset-picker';
@@ -21,6 +21,7 @@ import { useDebounced } from '@/lib/hooks/use-debounced';
 import type { Page, TemplateView, TimelineSummaryView } from '@/lib/types';
 import { cn, qs, timeAgo } from '@/lib/utils';
 import { TemplateGallery } from './template-gallery';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const ASPECTS = Object.keys(ASPECT_SIZES) as AspectRatio[];
 
@@ -48,9 +49,9 @@ export function EditsView() {
   const [creating, setCreating] = useState(sp.get('new') === '1');
   const [renaming, setRenaming] = useState<TimelineSummaryView | null>(null);
 
-  useEffect(() => {
+  useOnChange([sp], () => {
     if (sp.get('new') === '1') setCreating(true);
-  }, [sp]);
+  });
 
   const list = useInfiniteQuery({
     queryKey: ['timelines', query],
@@ -202,7 +203,7 @@ function EditCard({ t, onRename, onDuplicate, onDeleted }: { t: TimelineSummaryV
 
 function RenameDialog({ edit, onClose, onDone }: { edit: TimelineSummaryView | null; onClose: () => void; onDone: () => void }) {
   const [name, setName] = useState('');
-  useEffect(() => setName(edit?.name ?? ''), [edit]);
+  useOnChange([edit], () => { setName(edit?.name ?? ''); });
   const save = useMutation({
     mutationFn: async () => {
       if (!edit) return;

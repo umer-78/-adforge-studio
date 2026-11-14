@@ -22,6 +22,7 @@ import { PromptBox } from './prompt-box';
 import { ReferenceBoard } from './reference-board';
 import { normalizeSettings, SettingsControls, type Settings } from './settings-controls';
 import { pickDefaultModel, rememberModel, useModels } from './use-studio-model';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 export interface StudioMode {
   capability: Capability;
@@ -68,13 +69,13 @@ export function GenerateStudio({ modes, kind, presets = [] }: { modes: StudioMod
   const model = models.data?.find((m) => m.id === modelId);
 
   // Pick a model when the mode changes; keep it if it still fits.
-  useEffect(() => {
+  useOnChange([models.data, capability, modelId], () => {
     if (!models.data) return;
     if (!modelId || !models.data.some((m) => m.id === modelId)) setModelId(pickDefaultModel(models.data, capability));
-  }, [models.data, capability, modelId]);
-  useEffect(() => {
+  });
+  useOnChange([model], () => {
     if (model) setSettings((prev) => normalizeSettings(model, prev));
-  }, [model]);
+  });
 
   // Deep links: /generate?mode=i2v&image=<assetId>
   useEffect(() => {

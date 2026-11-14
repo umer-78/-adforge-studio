@@ -2,7 +2,7 @@
 
 import { Box, Scissors } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AssetSlot } from '@/components/app/asset-picker';
 import { RunBar } from '@/components/audio/run-bar';
 import { Composer, studioColumns, useCapabilityModel } from '@/components/audio/studio';
@@ -10,6 +10,7 @@ import { RecentGenerations } from '@/components/generate/recent-generations';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import type { AssetView } from '@/lib/types';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const TIPS = ['One product, centered, fully in frame', 'Plain or removed background', 'Even light, no hard shadows or glare', 'A three-quarter angle shows the most shape'];
 
@@ -18,11 +19,10 @@ export function ImageTo3dPanel({ initialImage }: { initialImage: AssetView | nul
   const { model } = useCapabilityModel('image_to_3d');
   const [image, setImage] = useState<AssetView | null>(initialImage);
   const [textured, setTextured] = useState(true);
-  useEffect(() => {
+  useOnChange([initialImage?.id], () => {
     if (initialImage) setImage(initialImage);
     // Only a different linked photo replaces the one picked here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialImage?.id]);
+  });
   const problems = [!image ? 'Pick a product photo.' : image.status !== 'ready' ? 'Wait for the photo to finish processing.' : ''].filter(Boolean);
   return (
     <div className={studioColumns}>

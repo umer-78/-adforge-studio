@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronLeft, ChevronRight, Diamond } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { interpolateKeyframes, timelineOps, type AnimatableProp, type Clip, type TimelineData } from '@adforge/core';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -9,6 +9,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { player, usePlayhead } from './playhead';
 import { useEditor } from './store';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 /** Edits one clip as one undo step; edits sharing `coalesce` within a moment merge (slider drags, typing). */
 export function patchClip(clipId: string, fn: (clip: Clip, tl: TimelineData) => void, coalesce?: string) {
@@ -45,7 +46,7 @@ export function Section({ title, children, defaultOpen = true, aside }: { title:
 export function NumberInput({ value, onChange, min, max, step = 1, digits = 2, className, suffix, disabled }: { value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; digits?: number; className?: string; suffix?: string; disabled?: boolean }) {
   const shown = Number.isFinite(value) ? String(Number(value.toFixed(digits))) : '';
   const [text, setText] = useState(shown);
-  useEffect(() => setText(shown), [shown]);
+  useOnChange([shown], () => { setText(shown); });
   const commit = () => {
     const n = Number(text);
     if (!Number.isFinite(n) || text.trim() === '') return setText(shown);

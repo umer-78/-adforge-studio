@@ -17,6 +17,7 @@ import { useOpenInEditor } from '@/lib/hooks/use-open-in-editor';
 import type { AssetView, GenerationView, Page } from '@/lib/types';
 import { startUploads } from '@/lib/upload';
 import { cameraAt, ParallaxRenderer, type Motion } from './parallax-renderer';
+import { useOnChange } from '@/lib/hooks/use-on-change';
 
 const DEPTH_MODEL = 'depth-anything-v2';
 const MOTIONS: { value: Motion; label: string }[] = [
@@ -60,8 +61,8 @@ export function ParallaxTool() {
   });
 
   // Load textures once both the photo and its depth map exist.
+  useOnChange([image?.url, depthAsset?.url], () => setLoaded(false));
   useEffect(() => {
-    setLoaded(false);
     if (!image?.url || !depthAsset?.url || !canvas.current) return;
     let live = true;
     const c = canvas.current;
